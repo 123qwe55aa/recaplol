@@ -1,0 +1,384 @@
+import axios from 'axios';
+import type {
+  Player,
+  Match,
+  ChampionMastery as ClientChampionMastery,
+  Stats,
+  ChampionBuildResponse,
+  CoachChatResponse,
+  CoachReportResponse,
+  QueueType,
+  RegionCode,
+} from '../types';
+
+const api = axios.create({
+  baseURL: '/api',
+  timeout: 10000,
+});
+
+// API response types (snake_case from backend)
+interface ApiPlayerResponse {
+  puuid: string;
+  summoner_name: string;
+  tag_line: string;
+  summoner_id: string;
+  profile_icon_id: number;
+  summoner_level: number;
+  ranked_stats?: {
+    tier: string;
+    rank: string;
+    league_points: number;
+    wins: number;
+    losses: number;
+    queue_type: string;
+  };
+}
+
+interface ApiMatchListResponse {
+  matches: string[];
+  start_index: number;
+  total_count: number;
+  puuid: string;
+}
+
+interface ApiParticipantSummary {
+  puuid: string | null;
+  summoner_name: string | null;
+  team_id: number | null;
+  team_position: string | null;
+  champion_id: number | null;
+  champion_name: string | null;
+  champion_level: number;
+  kills: number;
+  deaths: number;
+  assists: number;
+  kda: number;
+  total_damage_dealt: number;
+  total_damage_dealt_to_champions: number;
+  total_damage_taken: number;
+  neutral_minions_killed: number;
+  total_minions_killed: number;
+  cs_per_minute: number;
+  vision_score: number;
+  wards_placed: number;
+  wards_destroyed: number;
+  gold_earned: number;
+  items: number[];
+  double_kills: number;
+  triple_kills: number;
+  quadra_kills: number;
+  pentakills: number;
+  win: boolean;
+}
+
+interface ApiMatchSummary {
+  match_id: string;
+  game_mode: string | null;
+  game_type: string | null;
+  game_version: string | null;
+  game_duration: number;
+  game_start_timestamp: number | null;
+  game_end_timestamp: number | null;
+  blue_team_win: boolean | null;
+  participants: ApiParticipantSummary[];
+}
+
+interface ApiMatchListWithDetailsResponse {
+  matches: ApiMatchSummary[];
+  start_index: number;
+  total_count: number;
+  puuid: string;
+}
+
+interface ApiMatchDetail {
+  match_id: string;
+  // Additional fields from backend
+}
+
+interface ApiChampionMastery {
+  champion_id: number;
+  champion_level: number;
+  champion_points: number;
+  champion_points_since_last_level?: number;
+  champion_points_until_next_level?: number;
+  chest_granted?: boolean;
+  last_played_time?: number;
+  tokens_earned?: number;
+}
+
+interface ApiPlayerMasteryResponse {
+  puuid: string;
+  summoner_name: string;
+  total_champion_levels: number;
+  total_champion_points: number;
+  champion_masteries: ApiChampionMastery[];
+}
+
+interface ApiPlayerStatsResponse {
+  puuid: string;
+  summoner_name: string;
+  career: {
+    total_matches: number;
+    total_wins: number;
+    total_losses: number;
+    win_rate: number;
+    overall_kda: number;
+    avg_kills: number;
+    avg_deaths: number;
+    avg_assists: number;
+    avg_cs_per_minute?: number;
+    avg_vision_score?: number;
+    avg_gold_earned?: number;
+    total_double_kills?: number;
+    total_triple_kills?: number;
+    total_quadra_kills?: number;
+    total_pentakills?: number;
+  };
+  champion_stats: Array<{
+    champion_id: number;
+    champion_name?: string;
+    games_played: number;
+    wins: number;
+    losses: number;
+    win_rate: number;
+    kills: number;
+    deaths: number;
+    assists: number;
+    kda: number;
+    avg_cs_per_minute?: number;
+  }>;
+  role_stats?: Array<{
+    role: string;
+    games_played: number;
+    win_rate: number;
+    avg_kda: number;
+    avg_cs_per_minute?: number;
+  }>;
+}
+
+// Response transformers: API -> Client types
+function transformPlayer(apiPlayer: ApiPlayerResponse): Player {
+  const ranked = apiPlayer.ranked_stats;
+  const totalGames = ranked ? ranked.wins + ranked.losses : 0;
+  const winRate = ranked && totalGames > 0 ? (ranked.wins / totalGames) * 100 : 0;
+
+  return {
+    puuid: apiPlayer.puuid,
+    gameName: apiPlayer.summoner_name,
+    tagLine: apiPlayer.tag_line,
+    level: apiPlayer.summoner_level,
+    rank: ranked?.rank ?? 'UNRANKED',
+    tier: ranked?.tier ?? 'UNRANKED',
+    lp: ranked?.league_points ?? 0,
+    winRate: winRate,
+    wins: ranked?.wins ?? 0,
+    losses: ranked?.losses ?? 0,
+    recentChampions: [], // Not provided by player endpoint
+  };
+}
+
+function transformMatchList(apiResponse: ApiMatchListResponse): { matchIds: string[]; total: number } {
+  return {
+    matchIds: apiResponse.matches,
+    total: apiResponse.total_count,
+  };
+}
+
+// Note: Champion name mapping would require a separate lookup or static data
+// For now, we'll use champion ID as placeholder
+const CHAMPION_ID_TO_NAME: Record<number, string> = {
+  1: 'Annie', 10: 'Kayle', 11: 'Master Yi', 16: 'Soraka', 18: 'Tristana',
+  19: 'Warwick', 2: 'Olafr', 20: 'Nunu', 21: 'Miss Fortune', 22: 'Ashe',
+  // Add more as needed - this is a partial mapping
+};
+
+function getChampionName(championId: number): string {
+  return CHAMPION_ID_TO_NAME[championId] ?? `Champion_${championId}`;
+}
+
+export const searchPlayer = async (gameName: string, tagLine: string): Promise<Player> => {
+  const { data } = await api.get<ApiPlayerResponse>(
+    `/players/by-summoner/${encodeURIComponent(gameName)}`,
+    { params: { tag_line: tagLine } }
+  );
+  return transformPlayer(data);
+};
+
+export const getPlayerByPuuid = async (puuid: string): Promise<Player> => {
+  const { data } = await api.get<ApiPlayerResponse>(`/players/${puuid}`);
+  return transformPlayer(data);
+};
+
+export const getPlayerRanked = async (puuid: string) => {
+  const { data } = await api.get(`/players/${puuid}/ranked`);
+  return data;
+};
+
+export const getPlayerMatches = async (puuid: string, limit = 20) => {
+  const { data } = await api.get<ApiMatchListResponse>(`/matches/${puuid}`, {
+    params: { limit },
+  });
+  return transformMatchList(data);
+};
+
+const DDRAGON_BASE = 'https://ddragon.leagueoflegends.com/cdn';
+
+function getItemImages(itemIds: number[], gameVersion: string): string[] {
+  const parts = gameVersion?.split('.');
+  const version = parts ? `${parts[0]}.${parts[1]}.1` : '16.1'; // e.g. "16.7.760.9485" -> "16.7.1"
+  return itemIds
+    .filter(id => id > 0)
+    .map(id => `${DDRAGON_BASE}/${version}/img/item/${id}.png`);
+}
+
+function transformMatchSummary(apiMatch: ApiMatchSummary): Match {
+  const gameVersion = apiMatch.game_version || '16.1';
+  const participants = apiMatch.participants.map(p => {
+    const itemImages = getItemImages(p.items || [], gameVersion);
+    return {
+      puuid: p.puuid || '',
+      gameName: p.summoner_name || '',
+      tagLine: '',
+      teamId: p.team_id || 0,
+      championId: p.champion_id || 0,
+      championName: p.champion_name || 'Unknown',
+      kills: p.kills,
+      deaths: p.deaths,
+      assists: p.assists,
+      goldEarned: p.gold_earned,
+      items: p.items || [],
+      itemImages,
+      summonerSpells: [],
+      win: p.win,
+      position: p.team_position || '',
+    };
+  });
+
+  return {
+    matchId: apiMatch.match_id,
+    queueType: apiMatch.game_mode || '',
+    gameCreation: apiMatch.game_start_timestamp || Date.now(),
+    gameDuration: apiMatch.game_duration,
+    participants,
+  };
+}
+
+export const getPlayerMatchesWithDetails = async (puuid: string, limit = 20) => {
+  const { data } = await api.get<ApiMatchListWithDetailsResponse>(
+    `/matches/${puuid}/details`,
+    { params: { limit } }
+  );
+  return {
+    matches: data.matches.map(m => transformMatchSummary(m)),
+    total: data.total_count,
+  };
+};
+
+export const fetchPlayerMatches = async (puuid: string, limit = 20, region = 'americas') => {
+  const { data } = await api.post(`/matches/fetch/${encodeURIComponent(puuid)}`, null, {
+    params: { limit, region },
+  });
+  return data;
+};
+
+export const getMatchDetail = async (matchId: string): Promise<Match | null> => {
+  try {
+    const { data } = await api.get<ApiMatchDetail>(`/matches/detail/${matchId}`);
+    // Transform to client type - simplified for now
+    return {
+      matchId: data.match_id,
+      queueType: '',
+      gameCreation: Date.now(),
+      gameDuration: 0,
+      participants: [],
+    };
+  } catch {
+    return null;
+  }
+};
+
+export const getPlayerStats = async (puuid: string): Promise<Stats | null> => {
+  try {
+    const { data } = await api.get<ApiPlayerStatsResponse>(`/stats/players/${puuid}/overview`);
+    return {
+      kda: data.career.overall_kda,
+      winRate: data.career.win_rate,
+      avgKills: data.career.avg_kills,
+      avgDeaths: data.career.avg_deaths,
+      avgAssists: data.career.avg_assists,
+      gamesPlayed: data.career.total_matches,
+    };
+  } catch {
+    return null;
+  }
+};
+
+export const getChampionMastery = async (
+  puuid: string,
+  limit = 10
+): Promise<{ champion_masteries: ClientChampionMastery[] }> => {
+  const { data } = await api.get<ApiPlayerMasteryResponse>(`/players/${puuid}/mastery`, {
+    params: { limit },
+  });
+
+  return {
+    champion_masteries: data.champion_masteries.map((m) => ({
+      championId: m.champion_id,
+      championName: getChampionName(m.champion_id),
+      level: m.champion_level,
+      points: m.champion_points,
+      lastPlayed: m.last_played_time ?? 0,
+    })),
+  };
+};
+
+export const getChampionBuild = async (
+  champName: string,
+  region: RegionCode = 'kr',
+  queue: QueueType = 'RANKED_SOLO_5x5',
+  tier = 'overall',
+  countersCount = 5,
+  role = ''
+): Promise<ChampionBuildResponse> => {
+  const { data } = await api.get<ChampionBuildResponse>(
+    `/opgg/champions/${encodeURIComponent(champName)}/build`,
+    {
+      params: { region, queue, tier, counters_count: countersCount, role },
+    }
+  );
+  return data;
+};
+
+export const getOpggRegions = async () => {
+  const { data } = await api.get('/opgg/regions');
+  return data;
+};
+
+export const getCoachReport = async (puuid: string): Promise<CoachReportResponse> => {
+  const { data } = await api.get<CoachReportResponse>(
+    `/coach/players/${encodeURIComponent(puuid)}/report`
+  );
+  return data;
+};
+
+export const generateCoachReport = async (
+  puuid: string,
+  force = false
+): Promise<CoachReportResponse> => {
+  const { data } = await api.post<CoachReportResponse>(
+    `/coach/players/${encodeURIComponent(puuid)}/report`,
+    { force }
+  );
+  return data;
+};
+
+export const sendCoachQuestion = async (
+  puuid: string,
+  question: string
+): Promise<CoachChatResponse> => {
+  const { data } = await api.post<CoachChatResponse>(
+    `/coach/players/${encodeURIComponent(puuid)}/chat`,
+    { question }
+  );
+  return data;
+};

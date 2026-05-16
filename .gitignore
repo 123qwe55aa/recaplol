@@ -1,0 +1,30 @@
+.DS_Store
+
+# Environment and local secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+
+# Node / frontend
+node_modules/
+dist/
+coverage/
+
+# Local editor and OS files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Local nested-git backup created while converting this project to a root repo
+.git-backup-empty/
+**/.git-backup-empty/
