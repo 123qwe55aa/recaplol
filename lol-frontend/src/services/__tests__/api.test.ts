@@ -80,4 +80,24 @@ describe('api service', () => {
       }
     );
   });
+
+  it('allows AI coach chat enough time for slow coach providers', async () => {
+    axiosMocks.post.mockResolvedValue({ data: { answer: 'ok' } });
+    axiosMocks.create.mockReturnValue({
+      get: axiosMocks.get,
+      post: axiosMocks.post,
+    });
+
+    const { sendCoachQuestion } = await import('../api');
+
+    await sendCoachQuestion('test-puuid', 'How do I die less?');
+
+    expect(axiosMocks.post).toHaveBeenCalledWith(
+      '/coach/players/test-puuid/chat',
+      { question: 'How do I die less?' },
+      {
+        timeout: 600000,
+      }
+    );
+  });
 });

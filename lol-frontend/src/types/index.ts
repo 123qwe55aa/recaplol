@@ -108,6 +108,36 @@ export interface CoachDataWindow {
   end_timestamp?: number | null;
   started_at?: string | null;
   ended_at?: string | null;
+  primary_role?: string | null;
+  primary_champions?: Array<Record<string, unknown>>;
+}
+
+export interface CoachDashboard {
+  match_count?: number;
+  win_rate?: number | null;
+  primary_role?: string | null;
+  averages?: {
+    kills?: number;
+    deaths?: number;
+    assists?: number;
+    cs_per_minute?: number;
+    vision_score?: number;
+    gold_earned?: number;
+  };
+  primary_champions?: Array<Record<string, unknown>>;
+}
+
+export interface CoachRecentMatch {
+  match_id: string;
+  champion_name?: string | null;
+  role?: string | null;
+  win?: boolean | null;
+  kills?: number | null;
+  deaths?: number | null;
+  assists?: number | null;
+  cs?: number | null;
+  vision_score?: number | null;
+  game_duration?: number | null;
 }
 
 export interface CoachPriority {
@@ -127,6 +157,8 @@ export interface CoachReportPayload {
   priorities: CoachPriority[];
   confidence: number | string;
   notes?: string | null;
+  dashboard?: CoachDashboard;
+  recent_matches?: CoachRecentMatch[];
 }
 
 export interface CoachReportResponse {

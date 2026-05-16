@@ -38,6 +38,8 @@ class CoachReportPayload(BaseModel):
     notes: Optional[str] = None
     generated_at: Optional[str] = None
     follow_up_questions: List[str] = Field(default_factory=list)
+    dashboard: dict = Field(default_factory=dict)
+    recent_matches: List[dict] = Field(default_factory=list)
 
 
 class CoachReportResponse(BaseModel):

@@ -243,6 +243,47 @@ def test_normalize_report_converts_primary_champion_names_to_dicts():
     ]
 
 
+def test_normalize_report_includes_dashboard_context():
+    normalized = coach._normalize_report(
+        {
+            "summary": "训练重点清晰。",
+            "priorities": [],
+        },
+        {
+            "match_count": 2,
+            "data_fingerprint": "fingerprint-1",
+            "win_rate": 0.5,
+            "primary_role": "UTILITY",
+            "averages": {
+                "kills": 2.5,
+                "deaths": 4.0,
+                "assists": 12.0,
+                "cs_per_minute": 1.2,
+                "vision_score": 42.0,
+            },
+            "matches": [
+                {
+                    "match_id": "NA1_1",
+                    "champion_name": "Soraka",
+                    "role": "UTILITY",
+                    "win": True,
+                    "kills": 1,
+                    "deaths": 3,
+                    "assists": 18,
+                    "cs": 24,
+                    "vision_score": 58,
+                    "game_duration": 1800,
+                }
+            ],
+        },
+    )
+
+    assert normalized["dashboard"]["win_rate"] == 0.5
+    assert normalized["dashboard"]["primary_role"] == "UTILITY"
+    assert normalized["dashboard"]["averages"]["vision_score"] == 42.0
+    assert normalized["recent_matches"][0]["champion_name"] == "Soraka"
+
+
 def test_chat_uses_latest_report(app):
     repo = AsyncMock()
     repo.get_latest_by_puuid = AsyncMock(return_value=make_report())

@@ -27,7 +27,46 @@ const reportResponse: CoachReportResponse = {
       match_count: 20,
       started_at: '2026-05-10T00:00:00Z',
       ended_at: '2026-05-16T00:00:00Z',
+      primary_role: 'MIDDLE',
     },
+    dashboard: {
+      match_count: 20,
+      win_rate: 0.55,
+      primary_role: 'MIDDLE',
+      averages: {
+        kills: 6.1,
+        deaths: 7.8,
+        assists: 8.4,
+        cs_per_minute: 5.4,
+        vision_score: 14,
+      },
+    },
+    recent_matches: [
+      {
+        match_id: 'NA1_1',
+        champion_name: 'Ahri',
+        role: 'MIDDLE',
+        win: false,
+        kills: 6,
+        deaths: 8,
+        assists: 9,
+        cs: 164,
+        vision_score: 14,
+        game_duration: 1800,
+      },
+      {
+        match_id: 'NA1_2',
+        champion_name: 'Orianna',
+        role: 'MIDDLE',
+        win: true,
+        kills: 5,
+        deaths: 4,
+        assists: 12,
+        cs: 198,
+        vision_score: 18,
+        game_duration: 1900,
+      },
+    ],
     priorities: [
       {
         title: 'Reduce avoidable deaths',
@@ -120,6 +159,25 @@ describe('CoachPage', () => {
     expect(screen.getByText('Ward around objectives')).toBeInTheDocument();
   });
 
+  it('renders dashboard metrics and recent match table', () => {
+    mockUseCoachReport.mockReturnValue({
+      data: reportResponse,
+      isLoading: false,
+      isFetching: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+
+    renderPage();
+
+    expect(screen.getByText('训练仪表盘')).toBeInTheDocument();
+    expect(screen.getByText('55%')).toBeInTheDocument();
+    expect(screen.getByText('7.8')).toBeInTheDocument();
+    expect(screen.getByText('最近比赛样本')).toBeInTheDocument();
+    expect(screen.getByText('Ahri')).toBeInTheDocument();
+    expect(screen.getByText('Orianna')).toBeInTheDocument();
+  });
+
   it('renders chat answer after submitting a follow-up question', async () => {
     const answer: CoachChatResponse = {
       answer: 'Start with wave state: crash, recall, and return with tempo.',
@@ -149,6 +207,25 @@ describe('CoachPage', () => {
       expect(screen.getByText(answer.answer)).toBeInTheDocument();
     });
     expect(mutateAsync).toHaveBeenCalledWith('How do I die less in lane?');
+  });
+
+  it('shows thinking state while follow-up answer is pending', () => {
+    mockUseCoachReport.mockReturnValue({
+      data: reportResponse,
+      isLoading: false,
+      isFetching: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+    mockUseCoachChat.mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: true,
+      error: null,
+    });
+
+    renderPage();
+
+    expect(screen.getByText('AI 正在思考...')).toBeInTheDocument();
   });
 
   it('renders error state with retry button', () => {

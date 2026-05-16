@@ -359,6 +359,8 @@ def _normalize_report(payload: dict[str, Any], context: dict[str, Any]) -> dict[
         "priorities": priorities[:3],
         "notes": _coerce_optional_text(notes),
         "follow_up_questions": list(payload.get("follow_up_questions") or []),
+        "dashboard": _build_dashboard_context(context),
+        "recent_matches": _normalize_recent_matches(context.get("matches") or []),
     }
 
 
@@ -427,6 +429,26 @@ def _normalize_primary_champions(value: Any) -> list[dict[str, Any]]:
             normalized.append(champion)
         elif champion is not None:
             normalized.append({"champion_name": str(champion)})
+    return normalized
+
+
+def _build_dashboard_context(context: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "match_count": int(context.get("match_count") or 0),
+        "win_rate": context.get("win_rate"),
+        "primary_role": context.get("primary_role"),
+        "averages": dict(context.get("averages") or {}),
+        "primary_champions": _normalize_primary_champions(
+            context.get("primary_champions") or []
+        ),
+    }
+
+
+def _normalize_recent_matches(matches: list[Any]) -> list[dict[str, Any]]:
+    normalized = []
+    for item in matches[:8]:
+        if isinstance(item, dict):
+            normalized.append(item)
     return normalized
 
 

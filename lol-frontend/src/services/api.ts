@@ -22,6 +22,7 @@ const api = axios.create({
 const MATCH_SYNC_TIMEOUT_MS = 60000;
 const AI_MATCH_RECAP_TIMEOUT_MS = 600000;
 const AI_COACH_REPORT_TIMEOUT_MS = 600000;
+const AI_COACH_CHAT_TIMEOUT_MS = 600000;
 
 // API response types (snake_case from backend)
 interface ApiPlayerResponse {
@@ -435,7 +436,8 @@ export const sendCoachQuestion = async (
 ): Promise<CoachChatResponse> => {
   const { data } = await api.post<CoachChatResponse>(
     `/coach/players/${encodeURIComponent(puuid)}/chat`,
-    { question }
+    { question },
+    { timeout: AI_COACH_CHAT_TIMEOUT_MS }
   );
   return data;
 };
