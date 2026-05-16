@@ -127,17 +127,10 @@ export function MatchHistory() {
                 <MatchCard
                   match={match}
                   puuid={resolvedPuuid}
+                  onDeepRecap={() => recapMutation.mutate(match.matchId)}
+                  isDeepRecapLoading={isLoadingRecap}
+                  hasDeepRecap={!!recap}
                 />
-                <div className="flex justify-end">
-                  <button
-                    type="button"
-                    onClick={() => recapMutation.mutate(match.matchId)}
-                    disabled={isLoadingRecap || !resolvedPuuid}
-                    className="px-3 py-2 bg-gray-800 text-yellow-300 border border-gray-700 rounded-md text-sm hover:bg-gray-700 disabled:opacity-50"
-                  >
-                    {isLoadingRecap ? 'AI 复盘生成中...' : '深度复盘'}
-                  </button>
-                </div>
                 {recap && (
                   <section className="border border-gray-700 bg-gray-800/60 rounded-lg p-4">
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">

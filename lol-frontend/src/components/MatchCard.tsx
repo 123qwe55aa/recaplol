@@ -5,6 +5,9 @@ interface MatchCardProps {
   match: Match;
   puuid: string;
   onClick?: () => void;
+  onDeepRecap?: () => void;
+  isDeepRecapLoading?: boolean;
+  hasDeepRecap?: boolean;
 }
 
 const QUEUE_LABELS: Record<string, string> = {
@@ -39,7 +42,14 @@ function getOutcome(player: Match['participants'][number], match: Match) {
   return player.win ? 'WIN' : 'LOSS';
 }
 
-export function MatchCard({ match, puuid, onClick }: MatchCardProps) {
+export function MatchCard({
+  match,
+  puuid,
+  onClick,
+  onDeepRecap,
+  isDeepRecapLoading = false,
+  hasDeepRecap = false,
+}: MatchCardProps) {
   // If puuid lookup fails (privacy), fall back to any participant with champion data
   let player = match.participants.find((p) => p.puuid === puuid);
   if (!player && match.participants.length > 0) {
@@ -59,7 +69,7 @@ export function MatchCard({ match, puuid, onClick }: MatchCardProps) {
   return (
     <div
       onClick={onClick}
-      className={`bg-gray-800 rounded-lg p-4 flex items-center gap-4 cursor-pointer hover:bg-gray-700 transition-colors ${
+      className={`bg-gray-800 rounded-lg p-4 flex items-center gap-4 ${onClick ? 'cursor-pointer' : ''} hover:bg-gray-700 transition-colors ${
         `border-l-4 ${borderColor}`
       }`}
     >
@@ -98,9 +108,30 @@ export function MatchCard({ match, puuid, onClick }: MatchCardProps) {
         </div>
       </div>
 
-      <div className="text-right">
-        <p className="text-gray-400 text-sm">{formatDuration(match.gameDuration)}</p>
-        <p className="text-yellow-400 text-sm">{player.goldEarned.toLocaleString()} 金币</p>
+      <div className="text-right flex flex-col items-end gap-2">
+        <div>
+          <p className="text-gray-400 text-sm">{formatDuration(match.gameDuration)}</p>
+          <p className="text-yellow-400 text-sm">{player.goldEarned.toLocaleString()} 金币</p>
+        </div>
+        {onDeepRecap && (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onDeepRecap();
+            }}
+            disabled={isDeepRecapLoading}
+            aria-label={isDeepRecapLoading ? '正在生成深度复盘' : '深度复盘'}
+            title={isDeepRecapLoading ? '正在生成深度复盘' : '深度复盘'}
+            className={`h-8 w-8 rounded-md border text-xs font-bold transition-colors ${
+              hasDeepRecap
+                ? 'border-yellow-400 bg-yellow-400 text-black'
+                : 'border-gray-600 bg-gray-900 text-yellow-300 hover:bg-gray-700'
+            } disabled:cursor-not-allowed disabled:opacity-60`}
+          >
+            {isDeepRecapLoading ? '...' : 'AI'}
+          </button>
+        )}
       </div>
     </div>
   );

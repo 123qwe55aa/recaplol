@@ -1,5 +1,5 @@
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
 import { MatchCard } from '../MatchCard';
 import type { Match } from '../../types';
 
@@ -38,5 +38,38 @@ describe('MatchCard', () => {
 
     expect(screen.getByText('重开')).toBeInTheDocument();
     expect(screen.queryByText('失败')).not.toBeInTheDocument();
+  });
+
+  it('renders deep recap as an icon action inside the card', () => {
+    const onDeepRecap = vi.fn();
+    render(
+      <MatchCard
+        match={makeMatch('WIN')}
+        puuid="player-puuid"
+        onDeepRecap={onDeepRecap}
+      />
+    );
+
+    const button = screen.getByRole('button', { name: '深度复盘' });
+    expect(button).toHaveAttribute('title', '深度复盘');
+
+    fireEvent.click(button);
+
+    expect(onDeepRecap).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows loading state for the deep recap icon action', () => {
+    render(
+      <MatchCard
+        match={makeMatch('WIN')}
+        puuid="player-puuid"
+        onDeepRecap={() => undefined}
+        isDeepRecapLoading
+      />
+    );
+
+    const button = screen.getByRole('button', { name: '正在生成深度复盘' });
+    expect(button).toBeDisabled();
+    expect(button).toHaveTextContent('...');
   });
 });
