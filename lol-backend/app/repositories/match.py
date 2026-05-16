@@ -1,6 +1,6 @@
 from typing import Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, desc, func
+from sqlalchemy import select, and_, desc
 from datetime import datetime
 
 from app.models.match import Match, MatchParticipant, MatchTimeline
@@ -26,11 +26,9 @@ class MatchRepository(BaseRepository[Match]):
     async def get_recent_matches(
         self, puuid: str, limit: int = 20, offset: int = 0
     ) -> List[str]:
-        # Subquery: get distinct match_ids with their most recent participant id
         subq = (
             select(
-                MatchParticipant.match_id,
-                func.max(MatchParticipant.id).label("max_id"),
+                MatchParticipant.match_id.label("match_id"),
             )
             .where(MatchParticipant.puuid == puuid)
             .group_by(MatchParticipant.match_id)
@@ -38,7 +36,8 @@ class MatchRepository(BaseRepository[Match]):
         )
         result = await self.session.execute(
             select(subq.c.match_id)
-            .order_by(desc(subq.c.max_id))
+            .join(Match, Match.match_id == subq.c.match_id)
+            .order_by(desc(Match.game_start_timestamp), desc(subq.c.match_id))
             .limit(limit)
             .offset(offset)
         )

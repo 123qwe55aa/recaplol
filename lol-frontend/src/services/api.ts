@@ -20,6 +20,7 @@ const api = axios.create({
 });
 
 const MATCH_SYNC_TIMEOUT_MS = 60000;
+const AI_MATCH_RECAP_TIMEOUT_MS = 600000;
 
 // API response types (snake_case from backend)
 interface ApiPlayerResponse {
@@ -311,7 +312,9 @@ export const generateAiMatchRecap = async (
   puuid: string
 ): Promise<CoachMatchRecapResponse> => {
   const { data } = await api.post<CoachMatchRecapResponse>(
-    `/coach/matches/${encodeURIComponent(matchId)}/recap/${encodeURIComponent(puuid)}`
+    `/coach/matches/${encodeURIComponent(matchId)}/recap/${encodeURIComponent(puuid)}`,
+    null,
+    { timeout: AI_MATCH_RECAP_TIMEOUT_MS }
   );
   return data;
 };

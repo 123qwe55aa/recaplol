@@ -109,7 +109,7 @@ export function MatchHistory() {
                     disabled={isLoadingRecap || !resolvedPuuid}
                     className="px-3 py-2 bg-gray-800 text-yellow-300 border border-gray-700 rounded-md text-sm hover:bg-gray-700 disabled:opacity-50"
                   >
-                    {isLoadingRecap ? '分析中...' : '深度复盘'}
+                    {isLoadingRecap ? 'AI 复盘生成中...' : '深度复盘'}
                   </button>
                 </div>
                 {recap && (
@@ -217,7 +217,7 @@ export function MatchHistory() {
                 )}
                 {recapMutation.isError && recapMutation.variables === match.matchId && (
                   <p className="text-red-400 text-sm text-right">
-                    深度复盘加载失败，请确认这局 timeline 已可从 Riot API 获取。
+                    深度复盘加载失败，可能是 Riot timeline 或 AI 复盘服务暂时不可用。
                   </p>
                 )}
               </div>

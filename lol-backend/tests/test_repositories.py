@@ -276,7 +276,7 @@ class TestMatchRepository:
 
     @pytest.mark.asyncio
     async def test_get_recent_matches(self, repository, mock_session):
-        """Test get_recent_matches."""
+        """Test get_recent_matches orders by Riot match start time."""
         match_ids = ["NA1_111", "NA1_222", "NA1_333"]
         mock_result = MagicMock()
         mock_result.all.return_value = [(mid,) for mid in match_ids]
@@ -286,6 +286,10 @@ class TestMatchRepository:
 
         assert result == match_ids
         assert len(result) == 3
+        statement = mock_session.execute.call_args.args[0]
+        sql = str(statement.compile(compile_kwargs={"literal_binds": True}))
+        assert "matches" in sql
+        assert "game_start_timestamp DESC" in sql
 
     @pytest.mark.asyncio
     async def test_get_match_count(self, repository, mock_session):
