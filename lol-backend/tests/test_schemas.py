@@ -290,6 +290,19 @@ class TestMatchSchemas:
         assert match.red_team.win is False
         assert len(match.participants) == 2
 
+    def test_participant_stats_can_represent_remake(self):
+        """Test participant outcome can distinguish remake from loss."""
+        stats = ParticipantStats(
+            summoner_name="BlueMid",
+            team_id=100,
+            champion_id=103,
+            win=None,
+            outcome="REMAKE",
+        )
+
+        assert stats.win is None
+        assert stats.outcome == "REMAKE"
+
     def test_match_list_response(self):
         """Test MatchListResponse schema."""
         response = MatchListResponse(

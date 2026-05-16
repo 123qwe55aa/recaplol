@@ -150,6 +150,8 @@ def _build_averages(totals: dict[str, float], count: int, total_minutes: float) 
 
 
 def _derive_win(match: Any, participant: Any) -> bool | None:
+    if (_get(match, "game_duration") or 0) > 0 and _get(match, "game_duration") <= 300:
+        return None
     blue_team_win = _get(match, "blue_team_win")
     team_id = _get(participant, "team_id")
     if blue_team_win is None or team_id is None:

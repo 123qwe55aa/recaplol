@@ -33,6 +33,12 @@ function formatDate(timestamp: number): string {
   return date.toLocaleDateString('zh-CN');
 }
 
+function getOutcome(player: Match['participants'][number], match: Match) {
+  if (player.outcome) return player.outcome;
+  if (match.gameDuration > 0 && match.gameDuration <= 300) return 'REMAKE';
+  return player.win ? 'WIN' : 'LOSS';
+}
+
 export function MatchCard({ match, puuid, onClick }: MatchCardProps) {
   // If puuid lookup fails (privacy), fall back to any participant with champion data
   let player = match.participants.find((p) => p.puuid === puuid);
@@ -45,18 +51,22 @@ export function MatchCard({ match, puuid, onClick }: MatchCardProps) {
   const kdaColor = player.deaths === 0 ? 'text-purple-400' :
     player.kills / player.deaths >= 3 ? 'text-green-400' :
     player.kills / player.deaths >= 1 ? 'text-white' : 'text-red-400';
+  const outcome = getOutcome(player, match);
+  const outcomeText = outcome === 'WIN' ? '胜利' : outcome === 'LOSS' ? '失败' : outcome === 'REMAKE' ? '重开' : '未知';
+  const outcomeColor = outcome === 'WIN' ? 'text-blue-400' : outcome === 'LOSS' ? 'text-red-400' : 'text-gray-300';
+  const borderColor = outcome === 'WIN' ? 'border-blue-500' : outcome === 'LOSS' ? 'border-red-500' : 'border-gray-500';
 
   return (
     <div
       onClick={onClick}
       className={`bg-gray-800 rounded-lg p-4 flex items-center gap-4 cursor-pointer hover:bg-gray-700 transition-colors ${
-        player.win ? 'border-l-4 border-blue-500' : 'border-l-4 border-red-500'
+        `border-l-4 ${borderColor}`
       }`}
     >
       <div className="flex-1">
         <div className="flex items-center gap-2">
-          <span className={`text-sm font-semibold ${player.win ? 'text-blue-400' : 'text-red-400'}`}>
-            {player.win ? '胜利' : '失败'}
+          <span className={`text-sm font-semibold ${outcomeColor}`}>
+            {outcomeText}
           </span>
           <span className="text-gray-400 text-sm">
             {QUEUE_LABELS[match.queueType] || match.queueType}

@@ -34,7 +34,8 @@ export interface Participant {
   items: number[];
   itemImages: string[];
   summonerSpells: number[];
-  win: boolean;
+  win: boolean | null;
+  outcome?: 'WIN' | 'LOSS' | 'REMAKE' | 'UNKNOWN';
   position: string;
 }
 

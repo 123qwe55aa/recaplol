@@ -22,13 +22,23 @@ def _participant_won(participant) -> bool:
     return bool(getattr(participant, "win", False))
 
 
+def _participant_counted(participant) -> bool:
+    return getattr(participant, "outcome", "UNKNOWN") != "REMAKE"
+
+
 def _attach_win_result(participant, match) -> None:
+    if match and (match.game_duration or 0) > 0 and match.game_duration <= 300:
+        participant.win = None
+        participant.outcome = "REMAKE"
+        return
     if not participant or not match or match.blue_team_win is None or participant.team_id is None:
-        participant.win = False
+        participant.win = None
+        participant.outcome = "UNKNOWN"
         return
 
     blue_win = bool(match.blue_team_win)
     participant.win = blue_win if participant.team_id == 100 else not blue_win
+    participant.outcome = "WIN" if participant.win else "LOSS"
 
 
 def _calculate_career_stats(
@@ -37,6 +47,7 @@ def _calculate_career_stats(
     summoner_name: str,
 ) -> CareerStats:
     """Calculate career statistics from participant records."""
+    participants = [p for p in participants if _participant_counted(p)]
     total_matches = len(participants)
     if total_matches == 0:
         return CareerStats(puuid=puuid, summoner_name=summoner_name)
@@ -91,7 +102,10 @@ def _calculate_champion_stats(
     champion_id: int,
 ) -> ChampionStats:
     """Calculate champion-specific statistics."""
-    champ_participants = [p for p in participants if p.champion_id == champion_id]
+    champ_participants = [
+        p for p in participants
+        if p.champion_id == champion_id and _participant_counted(p)
+    ]
     games_played = len(champ_participants)
 
     if games_played == 0:
@@ -135,6 +149,8 @@ def _calculate_role_stats(participants: list) -> List[RoleStats]:
     })
 
     for p in participants:
+        if not _participant_counted(p):
+            continue
         role = p.team_position or "UNKNOWN"
         role_data[role]["games"] += 1
         role_data[role]["kills"] += p.kills

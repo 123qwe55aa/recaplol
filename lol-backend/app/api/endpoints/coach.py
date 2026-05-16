@@ -257,6 +257,8 @@ def _participant_id_for_puuid(timeline_json: dict[str, Any], puuid: str) -> int 
 
 
 def _participant_result(match: Any, participant: Any) -> str:
+    if (match.game_duration or 0) > 0 and match.game_duration <= 300:
+        return "remake"
     if match.blue_team_win is None or participant.team_id is None:
         return "unknown"
     blue_win = bool(match.blue_team_win)

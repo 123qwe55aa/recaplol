@@ -43,8 +43,9 @@ class ParticipantStats(BaseModel):
     quadra_kills: int = 0
     pentakills: int = 0
 
-    # Win (derived from team_id + blue_team_win)
-    win: bool = False
+    # Outcome (derived from team_id + blue_team_win, with REMAKE as neutral)
+    win: Optional[bool] = None
+    outcome: str = "UNKNOWN"
 
 
 class TeamBans(BaseModel):
@@ -54,7 +55,8 @@ class TeamBans(BaseModel):
 
 class MatchTeamInfo(BaseModel):
     team_id: int
-    win: bool
+    win: Optional[bool] = None
+    outcome: str = "UNKNOWN"
     bans: List[TeamBans] = Field(default_factory=list)
 
 

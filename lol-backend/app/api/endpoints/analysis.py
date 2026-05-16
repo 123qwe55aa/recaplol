@@ -26,12 +26,18 @@ def _participant_won(participant) -> bool:
 
 
 def _attach_win_result(participant, match) -> None:
+    if match and (match.game_duration or 0) > 0 and match.game_duration <= 300:
+        participant.win = None
+        participant.outcome = "REMAKE"
+        return
     if not participant or not match or match.blue_team_win is None or participant.team_id is None:
-        participant.win = False
+        participant.win = None
+        participant.outcome = "UNKNOWN"
         return
 
     blue_win = bool(match.blue_team_win)
     participant.win = blue_win if participant.team_id == 100 else not blue_win
+    participant.outcome = "WIN" if participant.win else "LOSS"
 
 
 def _analyze_kda_trends(

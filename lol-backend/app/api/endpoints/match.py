@@ -67,7 +67,8 @@ def _get_match_region_base_url(match_id: str) -> str:
 def _build_team_info(match, team_id: int) -> MatchTeamInfo:
     """Build team info from match data."""
     is_blue = team_id == 100
-    win = bool(match.blue_team_win) if is_blue else not bool(match.blue_team_win)
+    outcome = _team_outcome(match, team_id)
+    win = True if outcome == "WIN" else False if outcome == "LOSS" else None
     bans = match.blue_team_bans if is_blue else match.red_team_bans
     ban_list = []
     if bans:
@@ -76,7 +77,32 @@ def _build_team_info(match, team_id: int) -> MatchTeamInfo:
                 champion_id=b.get("championId"),
                 pick_turn=b.get("pickTurn"),
             ))
-    return MatchTeamInfo(team_id=team_id, win=win, bans=ban_list)
+    return MatchTeamInfo(team_id=team_id, win=win, outcome=outcome, bans=ban_list)
+
+
+def _is_remake_match(match) -> bool:
+    return bool((getattr(match, "game_duration", None) or 0) > 0 and match.game_duration <= 300)
+
+
+def _team_outcome(match, team_id: Optional[int]) -> str:
+    if _is_remake_match(match):
+        return "REMAKE"
+    if getattr(match, "blue_team_win", None) is None or team_id is None:
+        return "UNKNOWN"
+    blue_win = bool(match.blue_team_win)
+    team_win = blue_win if team_id == 100 else not blue_win
+    return "WIN" if team_win else "LOSS"
+
+
+def _participant_outcome(match, participant) -> str:
+    return _team_outcome(match, getattr(participant, "team_id", None))
+
+
+def _is_remake_payload(info: dict, participants_info: List[dict]) -> bool:
+    if any(p.get("gameEndedInEarlySurrender") for p in participants_info):
+        return True
+    game_duration = info.get("gameDuration") or 0
+    return bool(game_duration > 0 and game_duration <= 300)
 
 
 @router.get("/{puuid}", response_model=MatchListResponse)
@@ -113,10 +139,8 @@ def _build_match_summary(match, participants_data: List) -> "MatchSummaryRespons
         items = [p.item0, p.item1, p.item2, p.item3, p.item4, p.item5, p.item6]
         items = [i for i in items if i is not None]
 
-        # Determine win: blue team (100) win if blue_win=True, red team (200) win if blue_win=False
-        team_win = None
-        if blue_win is not None and p.team_id is not None:
-            team_win = blue_win if p.team_id == 100 else not blue_win
+        outcome = _participant_outcome(match, p)
+        team_win = True if outcome == "WIN" else False if outcome == "LOSS" else None
 
         participant_stats.append(ParticipantStats(
             puuid=p.puuid,
@@ -145,7 +169,8 @@ def _build_match_summary(match, participants_data: List) -> "MatchSummaryRespons
             triple_kills=p.triple_kills or 0,
             quadra_kills=p.quadra_kills or 0,
             pentakills=p.pentakills or 0,
-            win=team_win or False,
+            win=team_win,
+            outcome=outcome,
         ))
 
     return MatchSummaryResponse(
@@ -352,14 +377,18 @@ async def fetch_player_matches(
                 blue_bans = []
                 red_bans = []
                 blue_win = None
+                is_remake = False
                 blue_team_id = None
                 red_team_id = None
+
+                participants_info = info.get("participants", [])
+                is_remake = _is_remake_payload(info, participants_info)
 
                 for team in teams_data:
                     team_id = team.get("teamId")
                     if team_id == 100:
                         blue_team_id = 100
-                        blue_win = 1 if team.get("win", False) else 0
+                        blue_win = None if is_remake else 1 if team.get("win", False) else 0
                         bans = team.get("bans", [])
                         for ban in bans:
                             blue_bans.append({
@@ -408,8 +437,6 @@ async def fetch_player_matches(
 
                 # Parse participants
                 participants_data = metadata.get("participants", [])
-                participants_info = info.get("participants", [])
-
                 for i, participant_data in enumerate(participants_info):
                     p_puuid = participants_data[i] if i < len(participants_data) else None
                     if not p_puuid:
@@ -511,9 +538,8 @@ async def get_match_detail(
         items = [p.item0, p.item1, p.item2, p.item3, p.item4, p.item5, p.item6]
         items = [i for i in items if i is not None]
 
-        team_win = None
-        if blue_win is not None and p.team_id is not None:
-            team_win = blue_win if p.team_id == 100 else not blue_win
+        outcome = _participant_outcome(match, p)
+        team_win = True if outcome == "WIN" else False if outcome == "LOSS" else None
 
         participant_stats.append(ParticipantStats(
             puuid=p.puuid,
@@ -542,7 +568,8 @@ async def get_match_detail(
             triple_kills=p.triple_kills or 0,
             quadra_kills=p.quadra_kills or 0,
             pentakills=p.pentakills or 0,
-            win=team_win or False,
+            win=team_win,
+            outcome=outcome,
         ))
 
     # Build team info

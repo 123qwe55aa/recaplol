@@ -72,6 +72,7 @@ interface ApiParticipantSummary {
   quadra_kills: number;
   pentakills: number;
   win: boolean;
+  outcome?: 'WIN' | 'LOSS' | 'REMAKE' | 'UNKNOWN';
 }
 
 interface ApiMatchSummary {
@@ -253,6 +254,7 @@ function transformMatchSummary(apiMatch: ApiMatchSummary): Match {
       itemImages,
       summonerSpells: [],
       win: p.win,
+      outcome: p.outcome ?? (p.win ? 'WIN' : 'LOSS'),
       position: p.team_position || '',
     };
   });
