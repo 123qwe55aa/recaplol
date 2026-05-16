@@ -49,6 +49,26 @@ Return exactly one JSON object with this shape:
 Do not include markdown or extra keys.
 """.strip()
 
+MATCH_RECAP_SCHEMA_INSTRUCTIONS = """
+Return exactly one JSON object with this shape:
+{
+  "summary": "string",
+  "turning_points": [
+    {
+      "title": "string",
+      "timestamp": 0,
+      "explanation": "string"
+    }
+  ],
+  "strengths": ["string"],
+  "mistakes": ["string"],
+  "next_game_focus": "string",
+  "follow_up_questions": ["string"]
+}
+Use only supplied match_context and timeline_recap. Make this recap specific to this single game.
+Do not include markdown or extra keys. Do not invent hidden information or skill-shot details.
+""".strip()
+
 
 class AIProviderError(Exception):
     """Raised when an AI provider cannot complete a coach request."""
@@ -66,6 +86,12 @@ class AIProvider(ABC):
         self, report: dict, context: dict, question: str
     ) -> dict:
         """Return a structured follow-up answer."""
+
+    @abstractmethod
+    async def generate_match_recap(
+        self, match_context: dict, timeline_recap: dict
+    ) -> dict:
+        """Return an AI interpretation for one match recap."""
 
 
 class FakeAIProvider(AIProvider):
@@ -89,6 +115,58 @@ class FakeAIProvider(AIProvider):
             ),
             "used_evidence": evidence,
             "suggested_next_question": "Do you want a simple drill for the top priority?",
+        }
+
+    async def generate_match_recap(
+        self, match_context: dict, timeline_recap: dict
+    ) -> dict:
+        participant = match_context.get("participant") or {}
+        champion = participant.get("champion_name") or "这名英雄"
+        insights = list(timeline_recap.get("insights") or [])
+        stats = timeline_recap.get("timeline_stats") or {}
+        primary = insights[0] if insights else {}
+        primary_title = primary.get("title") or "节奏稳定性"
+        primary_recommendation = (
+            primary.get("recommendation")
+            or "下一局先盯一个可执行习惯，打完后只复盘这个习惯是否做到。"
+        )
+        evidence = list(primary.get("evidence") or [])
+        turning_points = []
+        for window in timeline_recap.get("resource_windows", [])[:2]:
+            if window.get("player_died_before"):
+                turning_points.append({
+                    "title": f"{window.get('resource') or '资源'}前阵亡",
+                    "timestamp": window.get("timestamp") or 0,
+                    "explanation": (
+                        f"{window.get('minute')} 分钟资源事件前你已经阵亡，"
+                        "这会让队伍以少打多或直接放弃争夺。"
+                    ),
+                })
+        if not turning_points and primary:
+            turning_points.append({
+                "title": primary_title,
+                "timestamp": 0,
+                "explanation": "这条规则信号是本局最值得先复盘的断点。",
+            })
+
+        strengths = []
+        cs10 = stats.get("cs_per_min_at_10")
+        if isinstance(cs10, (int, float)) and cs10 >= 6:
+            strengths.append(f"{champion} 10 分钟补刀约 {cs10}/分钟，对线基本盘还可以。")
+        if not strengths:
+            strengths.append("这局已经有可定位的时间线证据，复盘重点比较清楚。")
+
+        mistakes = evidence or [primary_title]
+        return {
+            "summary": f"这局 {champion} 最值得复盘的是：{primary_title}。",
+            "turning_points": turning_points[:3],
+            "strengths": strengths[:2],
+            "mistakes": mistakes[:3],
+            "next_game_focus": primary_recommendation,
+            "follow_up_questions": [
+                "这局第一个关键转折点该怎么处理？",
+                "下一局我应该只练哪一个动作？",
+            ],
         }
 
 
@@ -141,6 +219,24 @@ class OpenAIProvider(AIProvider):
                 "report": report,
                 "context": context,
                 "question": question,
+            },
+        )
+
+    async def generate_match_recap(
+        self, match_context: dict, timeline_recap: dict
+    ) -> dict:
+        return await self._create_structured_response(
+            system=(
+                "You are a League of Legends VOD review coach. Explain one match "
+                "from structured timeline evidence. Write in concise Chinese. "
+                "Be specific, practical, and avoid generic advice. Use only the "
+                "provided facts; if a cause is uncertain, phrase it as an inference."
+            ),
+            schema_instructions=MATCH_RECAP_SCHEMA_INSTRUCTIONS,
+            user_payload={
+                "task": "generate_single_match_recap",
+                "match_context": match_context,
+                "timeline_recap": timeline_recap,
             },
         )
 

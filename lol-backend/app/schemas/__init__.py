@@ -31,6 +31,7 @@ from app.schemas.coach import (
     CoachGenerateRequest,
     CoachChatRequest,
     CoachChatResponse,
+    CoachMatchRecapResponse,
 )
 
 __all__ = [
@@ -60,4 +61,5 @@ __all__ = [
     "CoachGenerateRequest",
     "CoachChatRequest",
     "CoachChatResponse",
+    "CoachMatchRecapResponse",
 ]

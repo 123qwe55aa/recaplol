@@ -7,13 +7,13 @@ import { MatchHistory } from '../MatchHistory';
 const getPlayerMatchesWithDetails = vi.fn();
 const fetchPlayerMatches = vi.fn();
 const fetchMatchTimeline = vi.fn();
-const getMatchRecap = vi.fn();
+const generateAiMatchRecap = vi.fn();
 
 vi.mock('../../services/api', () => ({
   getPlayerMatchesWithDetails: (...args: unknown[]) => getPlayerMatchesWithDetails(...args),
   fetchPlayerMatches: (...args: unknown[]) => fetchPlayerMatches(...args),
   fetchMatchTimeline: (...args: unknown[]) => fetchMatchTimeline(...args),
-  getMatchRecap: (...args: unknown[]) => getMatchRecap(...args),
+  generateAiMatchRecap: (...args: unknown[]) => generateAiMatchRecap(...args),
 }));
 
 function renderPage(route = '/matches/test-puuid') {
@@ -41,24 +41,17 @@ describe('MatchHistory', () => {
     getPlayerMatchesWithDetails.mockResolvedValue({ matches: [], total: 0 });
     fetchPlayerMatches.mockResolvedValue({ fetched: 10, match_count: 10 });
     fetchMatchTimeline.mockResolvedValue({ match_id: 'NA1_123', frame_interval: 60000, frames: [] });
-    getMatchRecap.mockResolvedValue({
+    generateAiMatchRecap.mockResolvedValue({
       match_id: 'NA1_123',
-      participant: {
-        puuid: 'test-puuid',
-        participant_id: 1,
-        champion_name: 'Ahri',
-        team_position: 'MID',
-      },
+      puuid: 'test-puuid',
+      model: 'fake-match-ai',
       timeline_stats: {
         early_deaths: 1,
         resource_deaths: 1,
         cs_per_min_at_10: 5,
         gold_at_10: 3000,
       },
-      match_phase_summary: {},
-      resource_windows: [],
-      key_events: {},
-      insights: [
+      deterministic_insights: [
         {
           type: 'resource_death',
           severity: 'high',
@@ -67,6 +60,20 @@ describe('MatchHistory', () => {
           recommendation: '资源前 90 秒先补视野。',
         },
       ],
+      recap: {
+        summary: '这局阿狸的问题集中在小龙前阵亡。',
+        turning_points: [
+          {
+            title: '关键资源前阵亡',
+            timestamp: 600000,
+            explanation: '你在小龙前阵亡，队伍无法正面争夺。',
+          },
+        ],
+        strengths: ['对线补刀还能接受'],
+        mistakes: ['资源前没有先处理视野和站位'],
+        next_game_focus: '资源前 90 秒先补视野。',
+        follow_up_questions: ['这波小龙前应该怎么站位？'],
+      },
     });
   });
 
@@ -131,9 +138,12 @@ describe('MatchHistory', () => {
 
     await waitFor(() => {
       expect(fetchMatchTimeline).toHaveBeenCalledWith('NA1_123');
-      expect(getMatchRecap).toHaveBeenCalledWith('NA1_123', 'test-puuid');
+      expect(generateAiMatchRecap).toHaveBeenCalledWith('NA1_123', 'test-puuid');
     });
-    expect(await screen.findByText('关键资源前阵亡')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getAllByText('关键资源前阵亡').length).toBeGreaterThan(0);
+    });
+    expect(screen.getByText('这局阿狸的问题集中在小龙前阵亡。')).toBeInTheDocument();
     expect(screen.getByText('资源前 90 秒先补视野。')).toBeInTheDocument();
   });
 });

@@ -13,15 +13,23 @@ from app.core.config import settings
 from app.db.database import get_db
 from app.models.coach import CoachReport
 from app.repositories.coach import CoachReportRepository
+from app.repositories.match import (
+    MatchParticipantRepository,
+    MatchRepository,
+    MatchTimelineRepository,
+)
 from app.schemas.coach import (
     CoachChatRequest,
     CoachChatResponse,
     CoachGenerateRequest,
+    CoachMatchRecapPayload,
+    CoachMatchRecapResponse,
     CoachReportResponse,
 )
 from app.services.ai_provider import AIProvider, AIProviderError, get_ai_provider
 from app.services.coach_context_builder import CoachContextBuilder
 from app.services.coach_rule_engine import score_context
+from app.services.match_timeline_analyzer import build_match_recap
 
 router = APIRouter(prefix="/coach", tags=["coach"])
 
@@ -38,6 +46,12 @@ def get_coach_report_repository(
 
 def get_ai_provider_dependency() -> AIProvider:
     return get_ai_provider()
+
+
+def get_match_timeline_repository(
+    db: AsyncSession = Depends(get_db),
+) -> MatchTimelineRepository:
+    return MatchTimelineRepository(db)
 
 
 @router.get("/players/{puuid}/report", response_model=CoachReportResponse)
@@ -137,6 +151,78 @@ async def chat_about_report(
     )
 
 
+@router.post("/matches/{match_id}/recap/{puuid}", response_model=CoachMatchRecapResponse)
+async def generate_match_ai_recap(
+    match_id: str,
+    puuid: str,
+    db: AsyncSession = Depends(get_db),
+    timeline_repo: MatchTimelineRepository = Depends(get_match_timeline_repository),
+    provider: AIProvider = Depends(get_ai_provider_dependency),
+):
+    match_repo = MatchRepository(db)
+    participant_repo = MatchParticipantRepository(db)
+    match = await match_repo.get_by_match_id(match_id)
+    if not match:
+        raise HTTPException(status_code=404, detail=f"Match {match_id} not found")
+
+    participant = await participant_repo.get_participant(match_id, puuid)
+    if not participant:
+        raise HTTPException(status_code=404, detail=f"Participant {puuid} not found")
+
+    timeline = await timeline_repo.get_by_match_id(match_id)
+    if not timeline:
+        raise HTTPException(status_code=404, detail=f"Timeline {match_id} not found")
+
+    participant_id = _participant_id_for_puuid(timeline.timeline_json, puuid)
+    if participant_id is None:
+        raise HTTPException(status_code=404, detail=f"Timeline participant {puuid} not found")
+
+    deterministic_recap = build_match_recap(
+        timeline=timeline.timeline_json,
+        participant_id=participant_id,
+        participant_team_id=participant.team_id,
+        game_duration=match.game_duration,
+    )
+    match_context = {
+        "match_id": match_id,
+        "result": _participant_result(match, participant),
+        "game_duration": match.game_duration,
+        "participant": {
+            "puuid": puuid,
+            "participant_id": participant_id,
+            "team_id": participant.team_id,
+            "champion_name": participant.champion_name,
+            "team_position": participant.team_position,
+            "kills": participant.kills,
+            "deaths": participant.deaths,
+            "assists": participant.assists,
+            "gold_earned": participant.gold_earned,
+            "cs": (participant.total_minions_killed or 0)
+            + (participant.neutral_minions_killed or 0),
+            "vision_score": participant.vision_score,
+        },
+    }
+
+    try:
+        ai_payload = await provider.generate_match_recap(
+            match_context=match_context,
+            timeline_recap=deterministic_recap,
+        )
+    except AIProviderError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"AI match recap unavailable: {exc}")
+
+    return CoachMatchRecapResponse(
+        match_id=match_id,
+        puuid=puuid,
+        model=getattr(provider, "model", None),
+        timeline_stats=deterministic_recap["timeline_stats"],
+        deterministic_insights=deterministic_recap["insights"],
+        recap=CoachMatchRecapPayload.model_validate(ai_payload),
+    )
+
+
 def _report_response(
     report: CoachReport, stale: bool | None = None, error_message: str | None = None
 ) -> CoachReportResponse:
@@ -154,6 +240,28 @@ def _report_response(
         created_at=report.created_at,
         updated_at=report.updated_at,
     )
+
+
+def _participant_id_for_puuid(timeline_json: dict[str, Any], puuid: str) -> int | None:
+    info = timeline_json.get("info") or {}
+    for participant in info.get("participants") or []:
+        if participant.get("puuid") == puuid:
+            participant_id = participant.get("participantId")
+            return int(participant_id) if participant_id is not None else None
+
+    metadata_participants = (timeline_json.get("metadata") or {}).get("participants") or []
+    for index, participant_puuid in enumerate(metadata_participants, start=1):
+        if participant_puuid == puuid:
+            return index
+    return None
+
+
+def _participant_result(match: Any, participant: Any) -> str:
+    if match.blue_team_win is None or participant.team_id is None:
+        return "unknown"
+    blue_win = bool(match.blue_team_win)
+    participant_win = blue_win if participant.team_id == 100 else not blue_win
+    return "win" if participant_win else "loss"
 
 
 def _normalize_report(payload: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:

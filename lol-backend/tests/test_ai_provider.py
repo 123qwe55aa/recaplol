@@ -196,3 +196,35 @@ async def test_fake_provider_answers_question():
 
     assert "How do I die less?" in answer["answer"]
     assert answer["used_evidence"] == ["high deaths"]
+
+
+@pytest.mark.asyncio
+async def test_fake_provider_generates_match_recap():
+    provider = FakeAIProvider()
+    recap = await provider.generate_match_recap(
+        match_context={
+            "match_id": "NA1_123",
+            "participant": {"champion_name": "Ahri", "team_position": "MID"},
+            "result": "loss",
+        },
+        timeline_recap={
+            "timeline_stats": {
+                "early_deaths": 1,
+                "resource_deaths": 1,
+                "cs_per_min_at_10": 5.0,
+            },
+            "insights": [
+                {
+                    "title": "关键资源前阵亡",
+                    "evidence": ["资源前 90 秒内死亡 1 次"],
+                    "recommendation": "资源前 90 秒先补视野。",
+                }
+            ],
+        },
+    )
+
+    assert recap["summary"]
+    assert recap["next_game_focus"]
+    assert recap["turning_points"][0]["title"] == "关键资源前阵亡"
+    assert recap["mistakes"]
+    assert recap["follow_up_questions"]

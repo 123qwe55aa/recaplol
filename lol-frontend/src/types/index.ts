@@ -194,5 +194,27 @@ export interface MatchRecapResponse {
   insights: MatchRecapInsight[];
 }
 
+export interface CoachMatchTurningPoint {
+  title: string;
+  timestamp: number;
+  explanation: string;
+}
+
+export interface CoachMatchRecapResponse {
+  match_id: string;
+  puuid: string;
+  model?: string | null;
+  timeline_stats: MatchRecapResponse['timeline_stats'];
+  deterministic_insights: MatchRecapInsight[];
+  recap: {
+    summary: string;
+    turning_points: CoachMatchTurningPoint[];
+    strengths: string[];
+    mistakes: string[];
+    next_game_focus: string;
+    follow_up_questions: string[];
+  };
+}
+
 export type QueueType = 'RANKED_SOLO_5x5' | 'RANKED_FLEX_SR' | 'RANKED_TFT' | 'ARKANE';
 export type RegionCode = 'kr' | 'na' | 'euw' | 'eune' | 'jp' | 'oce' | 'ru' | 'br' | 'las' | 'lan' | 'tr' | 'sg' | 'my' | 'ph' | 'th' | 'tw' | 'vn';

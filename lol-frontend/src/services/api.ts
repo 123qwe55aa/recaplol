@@ -6,6 +6,7 @@ import type {
   Stats,
   ChampionBuildResponse,
   CoachChatResponse,
+  CoachMatchRecapResponse,
   CoachReportResponse,
   MatchRecapResponse,
   MatchTimelineResponse,
@@ -296,6 +297,16 @@ export const getMatchRecap = async (
 ): Promise<MatchRecapResponse> => {
   const { data } = await api.get<MatchRecapResponse>(
     `/matches/${encodeURIComponent(matchId)}/recap/${encodeURIComponent(puuid)}`
+  );
+  return data;
+};
+
+export const generateAiMatchRecap = async (
+  matchId: string,
+  puuid: string
+): Promise<CoachMatchRecapResponse> => {
+  const { data } = await api.post<CoachMatchRecapResponse>(
+    `/coach/matches/${encodeURIComponent(matchId)}/recap/${encodeURIComponent(puuid)}`
   );
   return data;
 };

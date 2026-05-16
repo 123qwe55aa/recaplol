@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { fetchMatchTimeline, fetchPlayerMatches, getMatchRecap, getPlayerMatchesWithDetails } from '../services/api';
+import { fetchMatchTimeline, fetchPlayerMatches, generateAiMatchRecap, getPlayerMatchesWithDetails } from '../services/api';
 import { MatchCard } from '../components/MatchCard';
 import { usePlayerStore } from '../stores/playerStore';
-import type { MatchRecapResponse } from '../types';
+import type { CoachMatchRecapResponse } from '../types';
 
 function statText(value: number | null | undefined, suffix = '') {
   if (value === null || value === undefined) return '-';
@@ -15,7 +15,7 @@ export function MatchHistory() {
   const { puuid } = useParams<{ puuid: string }>();
   const [searchParams] = useSearchParams();
   const { currentPlayer } = usePlayerStore();
-  const [recaps, setRecaps] = useState<Record<string, MatchRecapResponse>>({});
+  const [recaps, setRecaps] = useState<Record<string, CoachMatchRecapResponse>>({});
 
   const resolvedPuuid = puuid || currentPlayer?.puuid || '';
   const region = searchParams.get('region') || 'americas';
@@ -33,7 +33,7 @@ export function MatchHistory() {
   const recapMutation = useMutation({
     mutationFn: async (matchId: string) => {
       await fetchMatchTimeline(matchId);
-      return getMatchRecap(matchId, resolvedPuuid);
+      return generateAiMatchRecap(matchId, resolvedPuuid);
     },
     onSuccess: (recap) => {
       setRecaps((current) => ({ ...current, [recap.match_id]: recap }));
@@ -141,21 +141,77 @@ export function MatchHistory() {
                       </div>
                     </div>
                     <div className="mt-4 space-y-3">
-                      {recap.insights.length === 0 && (
-                        <p className="text-gray-400 text-sm">这局暂时没有明显时间线问题。</p>
-                      )}
-                      {recap.insights.map((insight) => (
-                        <article key={`${recap.match_id}-${insight.type}`} className="border-t border-gray-700 pt-3">
-                          <div className="flex items-center justify-between gap-3">
-                            <h2 className="text-white font-semibold">{insight.title}</h2>
-                            <span className="text-xs text-gray-400">{insight.severity}</span>
+                      <div className="border-t border-gray-700 pt-3">
+                        <p className="text-gray-500 text-xs uppercase">AI 结论</p>
+                        <p className="text-white leading-7 mt-1">{recap.recap.summary}</p>
+                      </div>
+
+                      {recap.recap.turning_points.length > 0 && (
+                        <div className="border-t border-gray-700 pt-3">
+                          <p className="text-gray-500 text-xs uppercase">关键转折</p>
+                          <div className="mt-2 space-y-2">
+                            {recap.recap.turning_points.map((point) => (
+                              <article key={`${recap.match_id}-${point.title}-${point.timestamp}`}>
+                                <p className="text-white font-semibold">{point.title}</p>
+                                <p className="text-gray-300 text-sm mt-1">{point.explanation}</p>
+                              </article>
+                            ))}
                           </div>
-                          {insight.evidence.length > 0 && (
-                            <p className="text-gray-300 text-sm mt-1">{insight.evidence.join('；')}</p>
-                          )}
-                          <p className="text-yellow-200 text-sm mt-2">{insight.recommendation}</p>
-                        </article>
-                      ))}
+                        </div>
+                      )}
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-gray-700 pt-3">
+                        <div>
+                          <p className="text-gray-500 text-xs uppercase">做得好的地方</p>
+                          <ul className="mt-2 space-y-1 text-sm text-gray-300">
+                            {recap.recap.strengths.map((item) => (
+                              <li key={item}>• {item}</li>
+                            ))}
+                          </ul>
+                        </div>
+                        <div>
+                          <p className="text-gray-500 text-xs uppercase">主要问题</p>
+                          <ul className="mt-2 space-y-1 text-sm text-gray-300">
+                            {recap.recap.mistakes.map((item) => (
+                              <li key={item}>• {item}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+
+                      <div className="border-t border-gray-700 pt-3">
+                        <p className="text-gray-500 text-xs uppercase">下局只练这个</p>
+                        <p className="text-yellow-200 text-sm mt-2">{recap.recap.next_game_focus}</p>
+                      </div>
+
+                      {recap.deterministic_insights.length > 0 && (
+                        <details className="border-t border-gray-700 pt-3">
+                          <summary className="text-gray-400 text-sm cursor-pointer">查看规则证据</summary>
+                          <div className="mt-3 space-y-2">
+                            {recap.deterministic_insights.map((insight) => (
+                              <article key={`${recap.match_id}-${insight.type}`}>
+                                <p className="text-white text-sm font-semibold">{insight.title}</p>
+                                {insight.evidence.length > 0 && (
+                                  <p className="text-gray-300 text-sm mt-1">{insight.evidence.join('；')}</p>
+                                )}
+                              </article>
+                            ))}
+                          </div>
+                        </details>
+                      )}
+
+                      {recap.recap.follow_up_questions.length > 0 && (
+                        <div className="border-t border-gray-700 pt-3">
+                          <p className="text-gray-500 text-xs uppercase">可以继续问</p>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {recap.recap.follow_up_questions.map((question) => (
+                              <span key={question} className="px-2 py-1 rounded bg-gray-700 text-gray-200 text-xs">
+                                {question}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </section>
                 )}

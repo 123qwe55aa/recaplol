@@ -74,3 +74,27 @@ class CoachChatResponse(BaseModel):
     cited_priorities: List[str] = Field(default_factory=list)
     used_evidence: List[str] = Field(default_factory=list)
     suggested_next_question: Optional[str] = None
+
+
+class CoachMatchTurningPoint(BaseModel):
+    title: str
+    timestamp: int = 0
+    explanation: str
+
+
+class CoachMatchRecapPayload(BaseModel):
+    summary: str
+    turning_points: List[CoachMatchTurningPoint] = Field(default_factory=list)
+    strengths: List[str] = Field(default_factory=list)
+    mistakes: List[str] = Field(default_factory=list)
+    next_game_focus: str
+    follow_up_questions: List[str] = Field(default_factory=list)
+
+
+class CoachMatchRecapResponse(BaseModel):
+    match_id: str
+    puuid: str
+    model: Optional[str] = None
+    timeline_stats: dict = Field(default_factory=dict)
+    deterministic_insights: List[dict] = Field(default_factory=list)
+    recap: CoachMatchRecapPayload
