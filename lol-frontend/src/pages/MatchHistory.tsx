@@ -82,7 +82,7 @@ export function MatchHistory() {
 
         <div className="mb-4 text-sm">
           {syncMatches.isPending && (
-            <span className="text-yellow-400">正在同步最新战绩...</span>
+            <span className="text-yellow-400">正在同步最新战绩，可能需要半分钟...</span>
           )}
           {syncMatches.isSuccess && (
             <span className="text-green-400">最新战绩已同步</span>

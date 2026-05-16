@@ -19,6 +19,8 @@ const api = axios.create({
   timeout: 10000,
 });
 
+const MATCH_SYNC_TIMEOUT_MS = 60000;
+
 // API response types (snake_case from backend)
 interface ApiPlayerResponse {
   puuid: string;
@@ -282,6 +284,7 @@ export const getPlayerMatchesWithDetails = async (puuid: string, limit = 20) => 
 export const fetchPlayerMatches = async (puuid: string, limit = 20, region = 'americas') => {
   const { data } = await api.post(`/matches/fetch/${encodeURIComponent(puuid)}`, null, {
     params: { limit, region },
+    timeout: MATCH_SYNC_TIMEOUT_MS,
   });
   return data;
 };
