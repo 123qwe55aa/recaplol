@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { fetchMatchTimeline, fetchPlayerMatches, generateAiMatchRecap, getPlayerMatchesWithDetails } from '../services/api';
+import { fetchMatchTimeline, fetchPlayerMatches, generateAiMatchRecap, getPlayerMatchesWithDetails, getSavedAiMatchRecap } from '../services/api';
 import { MatchCard } from '../components/MatchCard';
 import { usePlayerStore } from '../stores/playerStore';
 import type { CoachMatchRecapResponse } from '../types';
@@ -49,6 +49,32 @@ export function MatchHistory() {
       },
     });
   }, [resolvedPuuid, region, refetch, syncMatches]);
+
+  useEffect(() => {
+    if (!resolvedPuuid || !matchData?.matches.length) return;
+    let cancelled = false;
+    const missingMatches = matchData.matches.filter((match) => !recaps[match.matchId]);
+    if (!missingMatches.length) return;
+
+    void Promise.all(
+      missingMatches.map((match) => getSavedAiMatchRecap(match.matchId, resolvedPuuid))
+    ).then((savedRecaps) => {
+      if (cancelled) return;
+      const nextRecaps = savedRecaps.filter((recap): recap is CoachMatchRecapResponse => !!recap);
+      if (!nextRecaps.length) return;
+      setRecaps((current) => {
+        const updated = { ...current };
+        nextRecaps.forEach((recap) => {
+          updated[recap.match_id] = recap;
+        });
+        return updated;
+      });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [matchData?.matches, recaps, resolvedPuuid]);
 
   if (isLoading) {
     return (

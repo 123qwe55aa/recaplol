@@ -8,12 +8,14 @@ const getPlayerMatchesWithDetails = vi.fn();
 const fetchPlayerMatches = vi.fn();
 const fetchMatchTimeline = vi.fn();
 const generateAiMatchRecap = vi.fn();
+const getSavedAiMatchRecap = vi.fn();
 
 vi.mock('../../services/api', () => ({
   getPlayerMatchesWithDetails: (...args: unknown[]) => getPlayerMatchesWithDetails(...args),
   fetchPlayerMatches: (...args: unknown[]) => fetchPlayerMatches(...args),
   fetchMatchTimeline: (...args: unknown[]) => fetchMatchTimeline(...args),
   generateAiMatchRecap: (...args: unknown[]) => generateAiMatchRecap(...args),
+  getSavedAiMatchRecap: (...args: unknown[]) => getSavedAiMatchRecap(...args),
 }));
 
 function renderPage(route = '/matches/test-puuid') {
@@ -41,6 +43,7 @@ describe('MatchHistory', () => {
     getPlayerMatchesWithDetails.mockResolvedValue({ matches: [], total: 0 });
     fetchPlayerMatches.mockResolvedValue({ fetched: 10, match_count: 10 });
     fetchMatchTimeline.mockResolvedValue({ match_id: 'NA1_123', frame_interval: 60000, frames: [] });
+    getSavedAiMatchRecap.mockResolvedValue(null);
     generateAiMatchRecap.mockResolvedValue({
       match_id: 'NA1_123',
       puuid: 'test-puuid',
@@ -145,5 +148,65 @@ describe('MatchHistory', () => {
     });
     expect(screen.getByText('这局阿狸的问题集中在小龙前阵亡。')).toBeInTheDocument();
     expect(screen.getByText('资源前 90 秒先补视野。')).toBeInTheDocument();
+  });
+
+  it('shows saved AI recap when match history is opened again', async () => {
+    getPlayerMatchesWithDetails.mockResolvedValue({
+      total: 1,
+      matches: [
+        {
+          matchId: 'NA1_123',
+          queueType: 'CLASSIC',
+          gameCreation: Date.now(),
+          gameDuration: 1800,
+          participants: [
+            {
+              puuid: 'test-puuid',
+              gameName: 'Tester',
+              tagLine: 'NA1',
+              teamId: 100,
+              championId: 103,
+              championName: 'Ahri',
+              kills: 3,
+              deaths: 4,
+              assists: 5,
+              goldEarned: 10000,
+              items: [],
+              itemImages: [],
+              summonerSpells: [],
+              win: false,
+              position: 'MID',
+            },
+          ],
+        },
+      ],
+    });
+    getSavedAiMatchRecap.mockResolvedValue({
+      match_id: 'NA1_123',
+      puuid: 'test-puuid',
+      model: 'fake-match-ai',
+      timeline_stats: {
+        early_deaths: 0,
+        resource_deaths: 0,
+        cs_per_min_at_10: 7,
+        gold_at_10: 3200,
+      },
+      deterministic_insights: [],
+      recap: {
+        summary: '这是已经保存过的 AI 复盘。',
+        turning_points: [],
+        strengths: ['对线稳定'],
+        mistakes: ['资源前站位还可以更早'],
+        next_game_focus: '提前布置小龙视野。',
+        follow_up_questions: [],
+      },
+    });
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(getSavedAiMatchRecap).toHaveBeenCalledWith('NA1_123', 'test-puuid');
+    });
+    expect(await screen.findByText('这是已经保存过的 AI 复盘。')).toBeInTheDocument();
   });
 });

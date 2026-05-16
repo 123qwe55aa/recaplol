@@ -29,6 +29,15 @@ class FakeAIProvider:
         }
 
 
+class CountingAIProvider(FakeAIProvider):
+    def __init__(self):
+        self.calls = 0
+
+    async def generate_match_recap(self, match_context, timeline_recap):
+        self.calls += 1
+        return await super().generate_match_recap(match_context, timeline_recap)
+
+
 class FakeTimelineRepository:
     async def get_by_match_id(self, match_id):
         return type(
@@ -69,6 +78,25 @@ class FakeTimelineRepository:
                         ],
                     }
                 }
+            },
+        )()
+
+
+class EmptyRecapRepository:
+    async def get_by_fingerprint(self, match_id, puuid, fingerprint):
+        return None
+
+    async def upsert_recap(self, **kwargs):
+        return type(
+            "SavedRecap",
+            (),
+            {
+                "match_id": kwargs["match_id"],
+                "puuid": kwargs["puuid"],
+                "model": kwargs["model"],
+                "timeline_stats": kwargs["timeline_stats"],
+                "deterministic_insights": kwargs["deterministic_insights"],
+                "recap_json": kwargs["recap_json"],
             },
         )()
 
@@ -117,6 +145,7 @@ async def test_generate_ai_match_recap(monkeypatch):
         puuid="player-puuid",
         db=object(),
         timeline_repo=FakeTimelineRepository(),
+        recap_repo=EmptyRecapRepository(),
         provider=provider,
     )
 
@@ -128,3 +157,125 @@ async def test_generate_ai_match_recap(monkeypatch):
     assert provider.seen_match_context["role_profile"]["role"] == "MIDDLE"
     assert provider.seen_match_context["role_profile"]["cs_is_primary"] is True
     assert provider.seen_timeline_recap["role_profile"]["role"] == "MIDDLE"
+
+
+@pytest.mark.asyncio
+async def test_generate_ai_match_recap_uses_cached_recap(monkeypatch):
+    fake_match = type("Match", (), {"match_id": "NA1_123", "game_duration": 1800, "blue_team_win": 0})()
+    fake_participant = type(
+        "Participant",
+        (),
+        {
+            "puuid": "player-puuid",
+            "team_id": 100,
+            "champion_name": "Ahri",
+            "team_position": "MID",
+            "individual_position": "MIDDLE",
+            "kills": 3,
+            "deaths": 5,
+            "assists": 7,
+            "gold_earned": 9000,
+            "total_minions_killed": 160,
+            "neutral_minions_killed": 0,
+            "vision_score": 18,
+        },
+    )()
+
+    class FakeMatchRepository:
+        def __init__(self, db):
+            pass
+
+        async def get_by_match_id(self, match_id):
+            return fake_match
+
+    class FakeParticipantRepository:
+        def __init__(self, db):
+            pass
+
+        async def get_participant(self, match_id, puuid):
+            return fake_participant
+
+    class FakeRecapRepository:
+        saved = None
+
+        def __init__(self, db):
+            pass
+
+        async def get_by_fingerprint(self, match_id, puuid, fingerprint):
+            return type(self).saved
+
+        async def upsert_recap(self, **kwargs):
+            type(self).saved = type(
+                "SavedRecap",
+                (),
+                {
+                    "match_id": kwargs["match_id"],
+                    "puuid": kwargs["puuid"],
+                    "model": kwargs["model"],
+                    "timeline_stats": kwargs["timeline_stats"],
+                    "deterministic_insights": kwargs["deterministic_insights"],
+                    "recap_json": kwargs["recap_json"],
+                },
+            )()
+            return self.saved
+
+    monkeypatch.setattr(coach, "MatchRepository", FakeMatchRepository)
+    monkeypatch.setattr(coach, "MatchParticipantRepository", FakeParticipantRepository)
+    monkeypatch.setattr(coach, "CoachMatchRecapRepository", FakeRecapRepository)
+
+    provider = CountingAIProvider()
+    first = await coach.generate_match_ai_recap(
+        match_id="NA1_123",
+        puuid="player-puuid",
+        db=object(),
+        timeline_repo=FakeTimelineRepository(),
+        recap_repo=FakeRecapRepository(object()),
+        provider=provider,
+    )
+    second = await coach.generate_match_ai_recap(
+        match_id="NA1_123",
+        puuid="player-puuid",
+        db=object(),
+        timeline_repo=FakeTimelineRepository(),
+        recap_repo=FakeRecapRepository(object()),
+        provider=provider,
+    )
+
+    assert provider.calls == 1
+    assert first.recap.summary == second.recap.summary
+
+
+@pytest.mark.asyncio
+async def test_get_cached_match_ai_recap_returns_saved_recap():
+    saved = type(
+        "SavedRecap",
+        (),
+        {
+            "match_id": "NA1_123",
+            "puuid": "player-puuid",
+            "model": "fake-match-ai",
+            "timeline_stats": {"resource_deaths": 1},
+            "deterministic_insights": [{"type": "resource_death"}],
+            "recap_json": {
+                "summary": "Cached single-game recap.",
+                "turning_points": [],
+                "strengths": [],
+                "mistakes": [],
+                "next_game_focus": "Set up dragon vision.",
+                "follow_up_questions": [],
+            },
+        },
+    )()
+
+    class FakeRecapRepository:
+        async def get_latest_by_match_player(self, match_id, puuid):
+            return saved
+
+    response = await coach.get_cached_match_ai_recap(
+        match_id="NA1_123",
+        puuid="player-puuid",
+        recap_repo=FakeRecapRepository(),
+    )
+
+    assert response.match_id == "NA1_123"
+    assert response.recap.summary == "Cached single-game recap."

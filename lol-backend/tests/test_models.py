@@ -4,7 +4,7 @@ from datetime import datetime
 
 from app.models.player import Player, ChampionMastery
 from app.models.match import Match, MatchParticipant, MatchTimeline
-from app.models.coach import CoachReport
+from app.models.coach import CoachMatchRecap, CoachReport
 
 
 class TestPlayerModel:
@@ -292,3 +292,40 @@ class TestCoachReportModel:
         assert "ix_coach_reports_puuid" in index_names
         assert "ix_coach_reports_data_fingerprint" in index_names
         assert "ix_coach_reports_generated_at" in index_names
+
+
+class TestCoachMatchRecapModel:
+    """Test CoachMatchRecap model."""
+
+    def test_coach_match_recap_creation(self):
+        """Test basic CoachMatchRecap model creation."""
+        generated_at = datetime.utcnow()
+        recap = CoachMatchRecap(
+            match_id="NA1_123",
+            puuid="test-puuid",
+            recap_json={"summary": "Play around dragon setup."},
+            timeline_stats={"resource_deaths": 1},
+            deterministic_insights=[{"type": "resource_death"}],
+            context_json={"role_profile": {"role": "MIDDLE"}},
+            data_fingerprint="match-fingerprint",
+            model="fake-match-ai",
+            generated_at=generated_at,
+        )
+
+        assert recap.match_id == "NA1_123"
+        assert recap.puuid == "test-puuid"
+        assert recap.recap_json["summary"] == "Play around dragon setup."
+        assert recap.timeline_stats == {"resource_deaths": 1}
+        assert recap.deterministic_insights == [{"type": "resource_death"}]
+        assert recap.context_json == {"role_profile": {"role": "MIDDLE"}}
+        assert recap.data_fingerprint == "match-fingerprint"
+        assert recap.model == "fake-match-ai"
+        assert recap.generated_at == generated_at
+
+    def test_coach_match_recap_tablename_and_indexes(self):
+        """Test CoachMatchRecap table name and indexes."""
+        assert CoachMatchRecap.__tablename__ == "coach_match_recaps"
+
+        index_names = {index.name for index in CoachMatchRecap.__table__.indexes}
+        assert "ix_coach_match_recaps_match_player" in index_names
+        assert "ix_coach_match_recaps_fingerprint" in index_names

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 from datetime import datetime
 from typing import Any
 
@@ -12,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.db.database import get_db
 from app.models.coach import CoachReport
-from app.repositories.coach import CoachReportRepository
+from app.repositories.coach import CoachMatchRecapRepository, CoachReportRepository
 from app.repositories.match import (
     MatchParticipantRepository,
     MatchRepository,
@@ -42,6 +43,12 @@ def get_coach_report_repository(
     db: AsyncSession = Depends(get_db),
 ) -> CoachReportRepository:
     return CoachReportRepository(db)
+
+
+def get_match_recap_repository(
+    db: AsyncSession = Depends(get_db),
+) -> CoachMatchRecapRepository:
+    return CoachMatchRecapRepository(db)
 
 
 def get_ai_provider_dependency() -> AIProvider:
@@ -157,6 +164,7 @@ async def generate_match_ai_recap(
     puuid: str,
     db: AsyncSession = Depends(get_db),
     timeline_repo: MatchTimelineRepository = Depends(get_match_timeline_repository),
+    recap_repo: CoachMatchRecapRepository = Depends(get_match_recap_repository),
     provider: AIProvider = Depends(get_ai_provider_dependency),
 ):
     match_repo = MatchRepository(db)
@@ -207,6 +215,14 @@ async def generate_match_ai_recap(
             "vision_score": participant.vision_score,
         },
     }
+    fingerprint = _match_recap_fingerprint(
+        match_context=match_context,
+        timeline_recap=deterministic_recap,
+    )
+
+    cached = await recap_repo.get_by_fingerprint(match_id, puuid, fingerprint)
+    if cached:
+        return _match_recap_response(cached)
 
     try:
         ai_payload = await provider.generate_match_recap(
@@ -218,14 +234,29 @@ async def generate_match_ai_recap(
     except Exception as exc:
         raise HTTPException(status_code=503, detail=f"AI match recap unavailable: {exc}")
 
-    return CoachMatchRecapResponse(
+    saved = await recap_repo.upsert_recap(
         match_id=match_id,
         puuid=puuid,
-        model=getattr(provider, "model", None),
+        data_fingerprint=fingerprint,
+        recap_json=ai_payload,
         timeline_stats=deterministic_recap["timeline_stats"],
         deterministic_insights=deterministic_recap["insights"],
-        recap=CoachMatchRecapPayload.model_validate(ai_payload),
+        context_json=match_context,
+        model=getattr(provider, "model", None),
     )
+    return _match_recap_response(saved)
+
+
+@router.get("/matches/{match_id}/recap/{puuid}", response_model=CoachMatchRecapResponse)
+async def get_cached_match_ai_recap(
+    match_id: str,
+    puuid: str,
+    recap_repo: CoachMatchRecapRepository = Depends(get_match_recap_repository),
+):
+    cached = await recap_repo.get_latest_by_match_player(match_id, puuid)
+    if not cached:
+        raise HTTPException(status_code=404, detail=f"AI recap {match_id} not found")
+    return _match_recap_response(cached)
 
 
 def _report_response(
@@ -245,6 +276,28 @@ def _report_response(
         created_at=report.created_at,
         updated_at=report.updated_at,
     )
+
+
+def _match_recap_response(recap: Any) -> CoachMatchRecapResponse:
+    return CoachMatchRecapResponse(
+        match_id=recap.match_id,
+        puuid=recap.puuid,
+        model=getattr(recap, "model", None),
+        timeline_stats=dict(getattr(recap, "timeline_stats", None) or {}),
+        deterministic_insights=list(getattr(recap, "deterministic_insights", None) or []),
+        recap=CoachMatchRecapPayload.model_validate(recap.recap_json),
+    )
+
+
+def _match_recap_fingerprint(match_context: dict[str, Any], timeline_recap: dict[str, Any]) -> str:
+    payload = {
+        "match_context": match_context,
+        "timeline_stats": timeline_recap.get("timeline_stats"),
+        "deterministic_insights": timeline_recap.get("insights"),
+        "role_profile": timeline_recap.get("role_profile"),
+    }
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str)
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
 
 def _participant_id_for_puuid(timeline_json: dict[str, Any], puuid: str) -> int | None:

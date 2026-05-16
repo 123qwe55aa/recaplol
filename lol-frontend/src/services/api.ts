@@ -319,6 +319,23 @@ export const generateAiMatchRecap = async (
   return data;
 };
 
+export const getSavedAiMatchRecap = async (
+  matchId: string,
+  puuid: string
+): Promise<CoachMatchRecapResponse | null> => {
+  try {
+    const { data } = await api.get<CoachMatchRecapResponse>(
+      `/coach/matches/${encodeURIComponent(matchId)}/recap/${encodeURIComponent(puuid)}`
+    );
+    return data;
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 404) {
+      return null;
+    }
+    throw error;
+  }
+};
+
 export const getMatchDetail = async (matchId: string): Promise<Match | null> => {
   try {
     const { data } = await api.get<ApiMatchDetail>(`/matches/detail/${matchId}`);

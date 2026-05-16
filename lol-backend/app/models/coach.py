@@ -33,3 +33,33 @@ class CoachReport(Base):
         kwargs.setdefault("stale", False)
         kwargs.setdefault("generated_at", datetime.utcnow())
         super().__init__(**kwargs)
+
+
+class CoachMatchRecap(Base):
+    __tablename__ = "coach_match_recaps"
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    match_id = Column(String(32), nullable=False)
+    puuid = Column(String(78), nullable=False)
+    recap_json = Column(JSON, nullable=False)
+    timeline_stats = Column(JSON, nullable=False)
+    deterministic_insights = Column(JSON, nullable=False)
+    context_json = Column(JSON, nullable=False)
+    data_fingerprint = Column(String(128), nullable=False)
+    model = Column(String(128), nullable=True)
+    status = Column(String(32), default="completed", nullable=False)
+    error_message = Column(String, nullable=True)
+    generated_at = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    __table_args__ = (
+        Index("ix_coach_match_recaps_match_player", "match_id", "puuid"),
+        Index("ix_coach_match_recaps_fingerprint", "data_fingerprint"),
+        Index("ix_coach_match_recaps_generated_at", "generated_at"),
+    )
+
+    def __init__(self, **kwargs):
+        kwargs.setdefault("status", "completed")
+        kwargs.setdefault("generated_at", datetime.utcnow())
+        super().__init__(**kwargs)
