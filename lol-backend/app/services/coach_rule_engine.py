@@ -24,6 +24,7 @@ def _confidence(match_count: int) -> str:
 def score_context(context: dict) -> dict:
     """Rank up to three data-backed improvement priorities from context."""
     averages = context.get("averages") or {}
+    role_profile = context.get("role_profile") or {}
     match_count = int(_number(context.get("match_count"), 0))
     primary_champions = context.get("primary_champions") or []
     findings = []
@@ -41,7 +42,7 @@ def score_context(context: dict) -> dict:
         )
 
     cs_per_minute = _number(averages.get("cs_per_minute"))
-    if 0 < cs_per_minute < 6.0:
+    if role_profile.get("cs_is_primary", True) and 0 < cs_per_minute < 6.0:
         findings.append(
             {
                 "category": "cs",

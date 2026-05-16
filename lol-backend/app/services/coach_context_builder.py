@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.repositories.match import MatchParticipantRepository, MatchRepository
 from app.repositories.player import ChampionMasteryRepository, PlayerRepository
+from app.services.match_timeline_analyzer import build_role_profile
 
 
 class CoachContextBuilder:
@@ -110,11 +111,13 @@ class CoachContextBuilder:
             champion_counts.values(),
             key=lambda item: (-item["games"], str(item.get("champion_name") or "")),
         )
+        primary_role = role_counts.most_common(1)[0][0] if role_counts else None
         context = {
             "player": _player_dict(player, puuid),
             "recent_match_ids": list(recent_match_ids),
             "match_count": match_count,
-            "primary_role": role_counts.most_common(1)[0][0] if role_counts else None,
+            "primary_role": primary_role,
+            "role_profile": build_role_profile(primary_role),
             "primary_champions": primary_champions,
             "champion_masteries": [_mastery_dict(mastery) for mastery in masteries],
             "averages": averages,

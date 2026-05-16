@@ -66,6 +66,7 @@ Return exactly one JSON object with this shape:
   "follow_up_questions": ["string"]
 }
 Use only supplied match_context and timeline_recap. Make this recap specific to this single game.
+Use match_context.role_profile as the evaluation contract. Do not make CS a primary criticism for UTILITY or JUNGLE. For UTILITY, prioritize vision control, assist participation, objective setup, deaths, and positioning. For lane carries, CS can be a primary point only when role_profile.cs_is_primary is true.
 Do not include markdown or extra keys. Do not invent hidden information or skill-shot details.
 """.strip()
 
@@ -125,6 +126,8 @@ class FakeAIProvider(AIProvider):
         insights = list(timeline_recap.get("insights") or [])
         stats = timeline_recap.get("timeline_stats") or {}
         primary = insights[0] if insights else {}
+        role_profile = match_context.get("role_profile") or {}
+        cs_is_primary = bool(role_profile.get("cs_is_primary"))
         primary_title = primary.get("title") or "节奏稳定性"
         primary_recommendation = (
             primary.get("recommendation")
@@ -151,7 +154,7 @@ class FakeAIProvider(AIProvider):
 
         strengths = []
         cs10 = stats.get("cs_per_min_at_10")
-        if isinstance(cs10, (int, float)) and cs10 >= 6:
+        if cs_is_primary and isinstance(cs10, (int, float)) and cs10 >= 6:
             strengths.append(f"{champion} 10 分钟补刀约 {cs10}/分钟，对线基本盘还可以。")
         if not strengths:
             strengths.append("这局已经有可定位的时间线证据，复盘重点比较清楚。")
@@ -230,7 +233,9 @@ class OpenAIProvider(AIProvider):
                 "You are a League of Legends VOD review coach. Explain one match "
                 "from structured timeline evidence. Write in concise Chinese. "
                 "Be specific, practical, and avoid generic advice. Use only the "
-                "provided facts; if a cause is uncertain, phrase it as an inference."
+                "provided facts; if a cause is uncertain, phrase it as an inference. "
+                "Respect role_profile. Do not make CS a primary criticism for UTILITY "
+                "or JUNGLE."
             ),
             schema_instructions=MATCH_RECAP_SCHEMA_INSTRUCTIONS,
             user_payload={

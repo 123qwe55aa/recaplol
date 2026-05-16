@@ -7,8 +7,12 @@ from app.api.endpoints import coach
 
 class FakeAIProvider:
     model = "fake-match-ai"
+    seen_match_context = None
+    seen_timeline_recap = None
 
     async def generate_match_recap(self, match_context, timeline_recap):
+        self.seen_match_context = match_context
+        self.seen_timeline_recap = timeline_recap
         return {
             "summary": "这局阿狸的问题集中在小龙前阵亡。",
             "turning_points": [
@@ -107,12 +111,13 @@ async def test_generate_ai_match_recap(monkeypatch):
     monkeypatch.setattr(coach, "MatchRepository", FakeMatchRepository)
     monkeypatch.setattr(coach, "MatchParticipantRepository", FakeParticipantRepository)
 
+    provider = FakeAIProvider()
     response = await coach.generate_match_ai_recap(
         match_id="NA1_123",
         puuid="player-puuid",
         db=object(),
         timeline_repo=FakeTimelineRepository(),
-        provider=FakeAIProvider(),
+        provider=provider,
     )
 
     data = response.model_dump()
@@ -120,3 +125,6 @@ async def test_generate_ai_match_recap(monkeypatch):
     assert data["model"] == "fake-match-ai"
     assert data["recap"]["summary"] == "这局阿狸的问题集中在小龙前阵亡。"
     assert data["recap"]["next_game_focus"] == "小龙前 90 秒不要单独过河。"
+    assert provider.seen_match_context["role_profile"]["role"] == "MIDDLE"
+    assert provider.seen_match_context["role_profile"]["cs_is_primary"] is True
+    assert provider.seen_timeline_recap["role_profile"]["role"] == "MIDDLE"

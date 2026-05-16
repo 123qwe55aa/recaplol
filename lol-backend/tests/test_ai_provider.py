@@ -127,6 +127,42 @@ async def test_openai_provider_includes_report_schema_in_prompt(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_openai_match_recap_prompt_requires_role_appropriate_analysis(monkeypatch):
+    captured = {}
+
+    class FakeChatCompletions:
+        async def create(self, **kwargs):
+            captured["messages"] = kwargs["messages"]
+            return SimpleNamespace(
+                choices=[SimpleNamespace(message=SimpleNamespace(content='{"summary":"ok"}'))]
+            )
+
+    class FakeClient:
+        def __init__(self, api_key, base_url=None):
+            self.chat = SimpleNamespace(completions=FakeChatCompletions())
+
+    monkeypatch.setitem(sys.modules, "openai", SimpleNamespace(AsyncOpenAI=FakeClient))
+    provider = OpenAIProvider(api_key="key", model="MiniMax-M2.7", api_mode="chat")
+
+    await provider.generate_match_recap(
+        match_context={
+            "participant": {"champion_name": "Soraka", "team_position": "UTILITY"},
+            "role_profile": {
+                "role": "UTILITY",
+                "primary_focus": ["vision", "assists"],
+                "avoid_as_primary": ["cs"],
+            },
+        },
+        timeline_recap={"timeline_stats": {"cs_per_min_at_10": 1.0}, "insights": []},
+    )
+
+    system_prompt = captured["messages"][0]["content"]
+    user_prompt = captured["messages"][1]["content"]
+    assert "role_profile" in user_prompt
+    assert "Do not make CS a primary criticism for UTILITY" in system_prompt
+
+
+@pytest.mark.asyncio
 async def test_openai_provider_passes_custom_base_url(monkeypatch):
     client_args = {}
 

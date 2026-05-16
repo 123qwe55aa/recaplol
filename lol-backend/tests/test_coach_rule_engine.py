@@ -26,6 +26,8 @@ def test_high_deaths_ranks_above_other_issues():
 def test_low_cs_per_minute_produces_cs_priority():
     context = {
         "match_count": 10,
+        "primary_role": "BOTTOM",
+        "role_profile": {"role": "BOTTOM", "cs_is_primary": True},
         "averages": {"deaths": 4.0, "cs_per_minute": 4.9, "vision_score": 24.0},
         "primary_champions": [
             {"champion_id": 81, "champion_name": "Ezreal", "games": 5},
@@ -38,6 +40,23 @@ def test_low_cs_per_minute_produces_cs_priority():
     cs_priority = next(item for item in result["findings"] if item["category"] == "cs")
     assert "4.9" in cs_priority["evidence"]
     assert cs_priority["title"]
+
+
+def test_low_cs_per_minute_does_not_produce_support_cs_priority():
+    context = {
+        "match_count": 10,
+        "primary_role": "UTILITY",
+        "role_profile": {"role": "UTILITY", "cs_is_primary": False},
+        "averages": {"deaths": 4.0, "cs_per_minute": 1.2, "vision_score": 24.0},
+        "primary_champions": [
+            {"champion_id": 16, "champion_name": "Soraka", "games": 6},
+            {"champion_id": 117, "champion_name": "Lulu", "games": 4},
+        ],
+    }
+
+    result = score_context(context)
+
+    assert not any(item["category"] == "cs" for item in result["findings"])
 
 
 def test_low_vision_score_produces_vision_priority():

@@ -10,14 +10,57 @@ RESOURCE_WINDOW_MS = 90_000
 EARLY_GAME_MS = 10 * 60 * 1000
 LANE_PHASE_MS = 14 * 60 * 1000
 
+ROLE_ALIASES = {
+    "MID": "MIDDLE",
+    "ADC": "BOTTOM",
+    "SUPPORT": "UTILITY",
+}
+
+ROLE_PROFILES = {
+    "TOP": {
+        "primary_focus": ["lane_trading", "cs", "side_lane_pressure", "deaths"],
+        "avoid_as_primary": [],
+        "cs_is_primary": True,
+    },
+    "JUNGLE": {
+        "primary_focus": ["objective_setup", "gank_timing", "farm_pathing", "deaths"],
+        "avoid_as_primary": ["lane_cs"],
+        "cs_is_primary": False,
+    },
+    "MIDDLE": {
+        "primary_focus": ["lane_trading", "cs", "roam_timing", "deaths"],
+        "avoid_as_primary": [],
+        "cs_is_primary": True,
+    },
+    "BOTTOM": {
+        "primary_focus": ["cs", "damage_uptime", "positioning", "deaths"],
+        "avoid_as_primary": [],
+        "cs_is_primary": True,
+    },
+    "UTILITY": {
+        "primary_focus": ["vision_control", "assist_participation", "objective_setup", "deaths"],
+        "avoid_as_primary": ["cs", "lane_cs"],
+        "cs_is_primary": False,
+    },
+}
+
+DEFAULT_ROLE_PROFILE = {
+    "primary_focus": ["deaths", "objective_setup", "teamfight_impact"],
+    "avoid_as_primary": [],
+    "cs_is_primary": False,
+}
+
 
 def build_match_recap(
     timeline: dict[str, Any],
     participant_id: int,
     participant_team_id: int | None,
     game_duration: int | None = None,
+    team_position: str | None = None,
+    individual_position: str | None = None,
 ) -> dict[str, Any]:
     """Build a player-focused recap from a Riot match timeline payload."""
+    role_profile = build_role_profile(team_position, individual_position)
     frames = list((timeline.get("info") or {}).get("frames") or [])
     events = _timeline_events(frames)
     participant_frames = _participant_frames(frames, participant_id)
@@ -74,11 +117,13 @@ def build_match_recap(
         early_deaths=early_deaths,
         resource_deaths=resource_deaths,
         cs_per_min_at_10=timeline_stats["cs_per_min_at_10"],
+        role_profile=role_profile,
     )
 
     return {
         "participant_id": participant_id,
         "participant_team_id": participant_team_id,
+        "role_profile": role_profile,
         "game_duration": game_duration,
         "timeline_stats": timeline_stats,
         "match_phase_summary": {
@@ -95,6 +140,29 @@ def build_match_recap(
         },
         "insights": insights,
     }
+
+
+def build_role_profile(
+    team_position: str | None,
+    individual_position: str | None = None,
+) -> dict[str, Any]:
+    role = _normalize_role(team_position) or _normalize_role(individual_position) or "UNKNOWN"
+    profile = ROLE_PROFILES.get(role, DEFAULT_ROLE_PROFILE)
+    return {
+        "role": role,
+        "team_position": team_position,
+        "individual_position": individual_position,
+        "primary_focus": list(profile["primary_focus"]),
+        "avoid_as_primary": list(profile["avoid_as_primary"]),
+        "cs_is_primary": bool(profile["cs_is_primary"]),
+    }
+
+
+def _normalize_role(role: str | None) -> str | None:
+    if not role:
+        return None
+    normalized = role.upper()
+    return ROLE_ALIASES.get(normalized, normalized)
 
 
 def _timeline_events(frames: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -154,6 +222,7 @@ def _build_insights(
     early_deaths: int,
     resource_deaths: int,
     cs_per_min_at_10: float | None,
+    role_profile: dict[str, Any],
 ) -> list[dict[str, Any]]:
     insights = []
     if early_deaths:
@@ -172,7 +241,11 @@ def _build_insights(
             "evidence": [f"资源刷新/击杀前 90 秒内死亡 {resource_deaths} 次"],
             "recommendation": "小龙、先锋、男爵前 90 秒优先补视野和保持人数，不在无队友覆盖的位置单独越线。",
         })
-    if cs_per_min_at_10 is not None and cs_per_min_at_10 < 5.5:
+    if (
+        role_profile.get("cs_is_primary")
+        and cs_per_min_at_10 is not None
+        and cs_per_min_at_10 < 5.5
+    ):
         insights.append({
             "type": "lane_cs",
             "severity": "medium",

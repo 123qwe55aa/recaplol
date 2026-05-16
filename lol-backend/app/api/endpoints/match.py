@@ -267,6 +267,8 @@ async def get_match_recap(
         participant_id=participant_id,
         participant_team_id=participant.team_id,
         game_duration=match.game_duration,
+        team_position=participant.team_position,
+        individual_position=getattr(participant, "individual_position", None),
     )
     return MatchRecapResponse(
         match_id=match_id,

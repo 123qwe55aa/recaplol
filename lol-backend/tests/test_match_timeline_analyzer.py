@@ -105,3 +105,73 @@ def test_build_match_recap_calculates_ten_minute_cs_and_gold():
     assert recap["timeline_stats"]["cs_at_10"] == 77
     assert recap["timeline_stats"]["cs_per_min_at_10"] == 7.7
     assert recap["match_phase_summary"]["lane_phase_cs_per_min"] == 7.7
+
+
+def test_build_match_recap_does_not_flag_support_low_cs():
+    timeline = {
+        "info": {
+            "frames": [
+                {
+                    "timestamp": 600000,
+                    "participantFrames": {
+                        "5": {
+                            "participantId": 5,
+                            "totalGold": 2600,
+                            "xp": 3200,
+                            "level": 6,
+                            "minionsKilled": 12,
+                            "jungleMinionsKilled": 0,
+                        }
+                    },
+                    "events": [],
+                }
+            ],
+        }
+    }
+
+    recap = build_match_recap(
+        timeline=timeline,
+        participant_id=5,
+        participant_team_id=100,
+        game_duration=1800,
+        team_position="UTILITY",
+    )
+
+    assert recap["timeline_stats"]["cs_per_min_at_10"] == 1.2
+    assert recap["role_profile"]["role"] == "UTILITY"
+    assert recap["role_profile"]["cs_is_primary"] is False
+    assert not any(insight["type"] == "lane_cs" for insight in recap["insights"])
+
+
+def test_build_match_recap_flags_laner_low_cs():
+    timeline = {
+        "info": {
+            "frames": [
+                {
+                    "timestamp": 600000,
+                    "participantFrames": {
+                        "3": {
+                            "participantId": 3,
+                            "totalGold": 2900,
+                            "xp": 3900,
+                            "level": 7,
+                            "minionsKilled": 43,
+                            "jungleMinionsKilled": 0,
+                        }
+                    },
+                    "events": [],
+                }
+            ],
+        }
+    }
+
+    recap = build_match_recap(
+        timeline=timeline,
+        participant_id=3,
+        participant_team_id=100,
+        game_duration=1800,
+        team_position="MIDDLE",
+    )
+
+    assert recap["role_profile"]["cs_is_primary"] is True
+    assert any(insight["type"] == "lane_cs" for insight in recap["insights"])

@@ -182,17 +182,22 @@ async def generate_match_ai_recap(
         participant_id=participant_id,
         participant_team_id=participant.team_id,
         game_duration=match.game_duration,
+        team_position=participant.team_position,
+        individual_position=getattr(participant, "individual_position", None),
     )
+    role_profile = deterministic_recap["role_profile"]
     match_context = {
         "match_id": match_id,
         "result": _participant_result(match, participant),
         "game_duration": match.game_duration,
+        "role_profile": role_profile,
         "participant": {
             "puuid": puuid,
             "participant_id": participant_id,
             "team_id": participant.team_id,
             "champion_name": participant.champion_name,
             "team_position": participant.team_position,
+            "individual_position": getattr(participant, "individual_position", None),
             "kills": participant.kills,
             "deaths": participant.deaths,
             "assists": participant.assists,
