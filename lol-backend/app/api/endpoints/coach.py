@@ -332,6 +332,9 @@ def _normalize_report(payload: dict[str, Any], context: dict[str, Any]) -> dict[
     data_window.setdefault("fingerprint", context.get("data_fingerprint"))
     data_window.setdefault("primary_role", context.get("primary_role"))
     data_window.setdefault("primary_champions", context.get("primary_champions") or [])
+    data_window["primary_champions"] = _normalize_primary_champions(
+        data_window.get("primary_champions")
+    )
 
     priority_items = payload.get("priorities") or []
     if not any(isinstance(priority, dict) for priority in priority_items):
@@ -411,6 +414,20 @@ def _normalize_priority(priority: Any) -> dict[str, Any]:
         "action_items": list(actions),
         "opgg_reference": priority.get("opgg_reference"),
     }
+
+
+def _normalize_primary_champions(value: Any) -> list[dict[str, Any]]:
+    champions = value or []
+    if not isinstance(champions, list):
+        champions = [champions]
+
+    normalized = []
+    for champion in champions:
+        if isinstance(champion, dict):
+            normalized.append(champion)
+        elif champion is not None:
+            normalized.append({"champion_name": str(champion)})
+    return normalized
 
 
 def _coerce_optional_text(value: Any, default: str | None = None) -> str | None:

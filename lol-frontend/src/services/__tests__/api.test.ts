@@ -60,4 +60,24 @@ describe('api service', () => {
       }
     );
   });
+
+  it('allows AI coach report generation enough time for slow coach providers', async () => {
+    axiosMocks.post.mockResolvedValue({ data: { has_report: true, report: null } });
+    axiosMocks.create.mockReturnValue({
+      get: axiosMocks.get,
+      post: axiosMocks.post,
+    });
+
+    const { generateCoachReport } = await import('../api');
+
+    await generateCoachReport('test-puuid', true);
+
+    expect(axiosMocks.post).toHaveBeenCalledWith(
+      '/coach/players/test-puuid/report',
+      { force: true },
+      {
+        timeout: 600000,
+      }
+    );
+  });
 });

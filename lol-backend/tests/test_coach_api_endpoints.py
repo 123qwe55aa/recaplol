@@ -224,6 +224,25 @@ def test_normalize_report_accepts_minimax_report_shape():
     assert normalized["notes"] == "视野意识优秀"
 
 
+def test_normalize_report_converts_primary_champion_names_to_dicts():
+    normalized = coach._normalize_report(
+        {
+            "summary": "先稳定主力位置。",
+            "data_window": {
+                "match_count": 20,
+                "primary_champions": ["Ezreal", "Maokai"],
+            },
+            "priorities": [],
+        },
+        {"match_count": 20, "data_fingerprint": "fingerprint-1"},
+    )
+
+    assert normalized["data_window"]["primary_champions"] == [
+        {"champion_name": "Ezreal"},
+        {"champion_name": "Maokai"},
+    ]
+
+
 def test_chat_uses_latest_report(app):
     repo = AsyncMock()
     repo.get_latest_by_puuid = AsyncMock(return_value=make_report())
