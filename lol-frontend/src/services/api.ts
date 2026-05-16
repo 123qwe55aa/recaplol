@@ -7,6 +7,8 @@ import type {
   ChampionBuildResponse,
   CoachChatResponse,
   CoachReportResponse,
+  MatchRecapResponse,
+  MatchTimelineResponse,
   QueueType,
   RegionCode,
 } from '../types';
@@ -278,6 +280,23 @@ export const fetchPlayerMatches = async (puuid: string, limit = 20, region = 'am
   const { data } = await api.post(`/matches/fetch/${encodeURIComponent(puuid)}`, null, {
     params: { limit, region },
   });
+  return data;
+};
+
+export const fetchMatchTimeline = async (matchId: string): Promise<MatchTimelineResponse> => {
+  const { data } = await api.post<MatchTimelineResponse>(
+    `/matches/timeline/fetch/${encodeURIComponent(matchId)}`
+  );
+  return data;
+};
+
+export const getMatchRecap = async (
+  matchId: string,
+  puuid: string
+): Promise<MatchRecapResponse> => {
+  const { data } = await api.get<MatchRecapResponse>(
+    `/matches/${encodeURIComponent(matchId)}/recap/${encodeURIComponent(puuid)}`
+  );
   return data;
 };
 

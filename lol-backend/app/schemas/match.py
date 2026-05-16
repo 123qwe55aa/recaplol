@@ -119,3 +119,40 @@ class MatchTimelineResponse(BaseModel):
     match_id: str
     frame_interval: int
     frames: List[dict] = Field(default_factory=list)
+
+
+class TimelineInsight(BaseModel):
+    type: str
+    severity: str = "medium"
+    title: str
+    evidence: List[str] = Field(default_factory=list)
+    recommendation: str
+
+
+class ResourceWindow(BaseModel):
+    resource: Optional[str] = None
+    timestamp: int
+    minute: float
+    killer_team_id: Optional[int] = None
+    player_team_id: Optional[int] = None
+    player_team_secured: Optional[bool] = None
+    player_died_before: bool = False
+    death_timestamps: List[int] = Field(default_factory=list)
+
+
+class MatchRecapParticipant(BaseModel):
+    puuid: str
+    participant_id: int
+    team_id: Optional[int] = None
+    champion_name: Optional[str] = None
+    team_position: Optional[str] = None
+
+
+class MatchRecapResponse(BaseModel):
+    match_id: str
+    participant: MatchRecapParticipant
+    timeline_stats: dict = Field(default_factory=dict)
+    match_phase_summary: dict = Field(default_factory=dict)
+    resource_windows: List[ResourceWindow] = Field(default_factory=list)
+    key_events: dict = Field(default_factory=dict)
+    insights: List[TimelineInsight] = Field(default_factory=list)

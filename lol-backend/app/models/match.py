@@ -131,3 +131,19 @@ class MatchParticipant(Base):
         kwargs.setdefault('gold_spent', 0)
         kwargs.setdefault('time_played', 0)
         super().__init__(**kwargs)
+
+
+class MatchTimeline(Base):
+    __tablename__ = "match_timelines"
+
+    match_id = Column(String(32), primary_key=True)
+    frame_interval = Column(Integer, nullable=True)
+    timeline_json = Column(JSON, nullable=False)
+    fetched_region = Column(String(32), nullable=True)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    __table_args__ = (
+        Index("ix_match_timelines_updated_at", "updated_at"),
+    )

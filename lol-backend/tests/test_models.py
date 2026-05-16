@@ -3,7 +3,7 @@ import pytest
 from datetime import datetime
 
 from app.models.player import Player, ChampionMastery
-from app.models.match import Match, MatchParticipant
+from app.models.match import Match, MatchParticipant, MatchTimeline
 from app.models.coach import CoachReport
 
 
@@ -217,6 +217,28 @@ class TestMatchParticipantModel:
     def test_match_participant_tablename(self):
         """Test MatchParticipant table name."""
         assert MatchParticipant.__tablename__ == "match_participants"
+
+
+class TestMatchTimelineModel:
+    """Test MatchTimeline model."""
+
+    def test_match_timeline_creation(self):
+        """Test basic MatchTimeline creation."""
+        timeline = MatchTimeline(
+            match_id="NA1_1234567890",
+            frame_interval=60000,
+            timeline_json={"info": {"frames": []}},
+            fetched_region="americas",
+        )
+
+        assert timeline.match_id == "NA1_1234567890"
+        assert timeline.frame_interval == 60000
+        assert timeline.timeline_json == {"info": {"frames": []}}
+        assert timeline.fetched_region == "americas"
+
+    def test_match_timeline_tablename(self):
+        """Test MatchTimeline table name."""
+        assert MatchTimeline.__tablename__ == "match_timelines"
 
 
 class TestCoachReportModel:

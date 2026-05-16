@@ -192,6 +192,13 @@ class RiotAPIClient:
         url = f"{self.BASE_URL}/lol/match/v5/matches/{match_id}/timeline"
         return await self._get(url)
 
+    async def get_match_timeline_with_region(
+        self, match_id: str, region_base: str
+    ) -> Optional[Dict]:
+        """Fetch match timeline from a specific regional URL."""
+        url = f"{region_base}/lol/match/v5/matches/{match_id}/timeline"
+        return await self._get(url)
+
     # Champion Mastery endpoints (use platform routing)
     async def get_champion_masteries(
         self, encrypted_summoner_id: str, tag_line: str = "na1"

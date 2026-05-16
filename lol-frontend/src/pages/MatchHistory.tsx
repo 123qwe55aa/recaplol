@@ -1,14 +1,21 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { fetchPlayerMatches, getPlayerMatchesWithDetails } from '../services/api';
+import { fetchMatchTimeline, fetchPlayerMatches, getMatchRecap, getPlayerMatchesWithDetails } from '../services/api';
 import { MatchCard } from '../components/MatchCard';
 import { usePlayerStore } from '../stores/playerStore';
+import type { MatchRecapResponse } from '../types';
+
+function statText(value: number | null | undefined, suffix = '') {
+  if (value === null || value === undefined) return '-';
+  return `${value}${suffix}`;
+}
 
 export function MatchHistory() {
   const { puuid } = useParams<{ puuid: string }>();
   const [searchParams] = useSearchParams();
   const { currentPlayer } = usePlayerStore();
+  const [recaps, setRecaps] = useState<Record<string, MatchRecapResponse>>({});
 
   const resolvedPuuid = puuid || currentPlayer?.puuid || '';
   const region = searchParams.get('region') || 'americas';
@@ -22,6 +29,15 @@ export function MatchHistory() {
   const hasSyncedRef = useRef(false);
   const syncMatches = useMutation({
     mutationFn: () => fetchPlayerMatches(resolvedPuuid, 20, region),
+  });
+  const recapMutation = useMutation({
+    mutationFn: async (matchId: string) => {
+      await fetchMatchTimeline(matchId);
+      return getMatchRecap(matchId, resolvedPuuid);
+    },
+    onSuccess: (recap) => {
+      setRecaps((current) => ({ ...current, [recap.match_id]: recap }));
+    },
   });
 
   useEffect(() => {
@@ -77,13 +93,80 @@ export function MatchHistory() {
         </div>
 
         <div className="space-y-3">
-          {matchData.matches.map((match) => (
-            <MatchCard
-              key={match.matchId}
-              match={match}
-              puuid={resolvedPuuid}
-            />
-          ))}
+          {matchData.matches.map((match) => {
+            const recap = recaps[match.matchId];
+            const isLoadingRecap = recapMutation.isPending && recapMutation.variables === match.matchId;
+            return (
+              <div key={match.matchId} className="space-y-2">
+                <MatchCard
+                  match={match}
+                  puuid={resolvedPuuid}
+                />
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => recapMutation.mutate(match.matchId)}
+                    disabled={isLoadingRecap || !resolvedPuuid}
+                    className="px-3 py-2 bg-gray-800 text-yellow-300 border border-gray-700 rounded-md text-sm hover:bg-gray-700 disabled:opacity-50"
+                  >
+                    {isLoadingRecap ? '分析中...' : '深度复盘'}
+                  </button>
+                </div>
+                {recap && (
+                  <section className="border border-gray-700 bg-gray-800/60 rounded-lg p-4">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                      <div>
+                        <p className="text-gray-500">10 分钟补刀</p>
+                        <p className="text-white font-semibold">
+                          {statText(recap.timeline_stats.cs_per_min_at_10, '/分钟')}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-gray-500">10 分钟经济</p>
+                        <p className="text-white font-semibold">
+                          {statText(recap.timeline_stats.gold_at_10)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-gray-500">前期死亡</p>
+                        <p className="text-white font-semibold">
+                          {statText(recap.timeline_stats.early_deaths, ' 次')}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-gray-500">资源前死亡</p>
+                        <p className="text-white font-semibold">
+                          {statText(recap.timeline_stats.resource_deaths, ' 次')}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="mt-4 space-y-3">
+                      {recap.insights.length === 0 && (
+                        <p className="text-gray-400 text-sm">这局暂时没有明显时间线问题。</p>
+                      )}
+                      {recap.insights.map((insight) => (
+                        <article key={`${recap.match_id}-${insight.type}`} className="border-t border-gray-700 pt-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <h2 className="text-white font-semibold">{insight.title}</h2>
+                            <span className="text-xs text-gray-400">{insight.severity}</span>
+                          </div>
+                          {insight.evidence.length > 0 && (
+                            <p className="text-gray-300 text-sm mt-1">{insight.evidence.join('；')}</p>
+                          )}
+                          <p className="text-yellow-200 text-sm mt-2">{insight.recommendation}</p>
+                        </article>
+                      ))}
+                    </div>
+                  </section>
+                )}
+                {recapMutation.isError && recapMutation.variables === match.matchId && (
+                  <p className="text-red-400 text-sm text-right">
+                    深度复盘加载失败，请确认这局 timeline 已可从 Riot API 获取。
+                  </p>
+                )}
+              </div>
+            );
+          })}
         </div>
 
         {matchData.matches.length === 0 && (

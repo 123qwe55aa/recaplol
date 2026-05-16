@@ -12,6 +12,7 @@ from app.schemas.match import (
     TeamBans,
     ParticipantStats,
     MatchTimelineResponse,
+    MatchRecapResponse,
 )
 from app.schemas.stats import (
     CareerStats,
@@ -44,6 +45,7 @@ __all__ = [
     "TeamBans",
     "ParticipantStats",
     "MatchTimelineResponse",
+    "MatchRecapResponse",
     "CareerStats",
     "ChampionStats",
     "RoleStats",

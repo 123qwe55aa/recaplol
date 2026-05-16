@@ -5,19 +5,34 @@ from typing import Optional, List
 
 from app.db.database import get_db
 from app.repositories.match import MatchRepository, MatchParticipantRepository
+from app.repositories.match import MatchTimelineRepository
 from app.schemas.match import (
     MatchResponse,
     MatchListResponse,
     MatchSummaryResponse,
     MatchListWithDetailsResponse,
+    MatchRecapResponse,
+    MatchRecapParticipant,
+    MatchTimelineResponse,
     ParticipantStats,
     MatchTeamInfo,
     TeamBans,
 )
 from app.services.riot_api_client import RiotAPIClient, get_riot_client
+from app.services.match_timeline_analyzer import build_match_recap
 from app.models.match import Match
 
 router = APIRouter(prefix="/matches", tags=["matches"])
+
+
+def get_match_timeline_repository(
+    db: AsyncSession = Depends(get_db),
+) -> MatchTimelineRepository:
+    return MatchTimelineRepository(db)
+
+
+def get_riot_client_dependency() -> RiotAPIClient:
+    return get_riot_client()
 
 
 # Map match_id platform prefix to regional base URL
@@ -143,6 +158,105 @@ def _build_match_summary(match, participants_data: List) -> "MatchSummaryRespons
         game_end_timestamp=match.game_end_timestamp,
         blue_team_win=blue_win,
         participants=participant_stats,
+    )
+
+
+def _participant_id_for_puuid(timeline_json: dict, puuid: str) -> Optional[int]:
+    info = timeline_json.get("info") or {}
+    for participant in info.get("participants") or []:
+        if participant.get("puuid") == puuid:
+            participant_id = participant.get("participantId")
+            return int(participant_id) if participant_id is not None else None
+
+    metadata_participants = (timeline_json.get("metadata") or {}).get("participants") or []
+    for index, participant_puuid in enumerate(metadata_participants, start=1):
+        if participant_puuid == puuid:
+            return index
+    return None
+
+
+@router.post("/timeline/fetch/{match_id}", response_model=MatchTimelineResponse)
+async def fetch_match_timeline(
+    match_id: str,
+    repo: MatchTimelineRepository = Depends(get_match_timeline_repository),
+    riot_client: RiotAPIClient = Depends(get_riot_client_dependency),
+):
+    """
+    Fetch and store a Riot Match V5 timeline for later deep recap analysis.
+
+    - **match_id**: Riot match ID, e.g. NA1_1234567890
+    """
+    region_base = _get_match_region_base_url(match_id)
+    async with riot_client:
+        timeline_data = await riot_client.get_match_timeline_with_region(match_id, region_base)
+
+    if not timeline_data:
+        raise HTTPException(status_code=404, detail=f"Timeline {match_id} not found")
+
+    info = timeline_data.get("info", {})
+    timeline = await repo.upsert_timeline(
+        match_id=match_id,
+        timeline_json=timeline_data,
+        frame_interval=info.get("frameInterval"),
+        fetched_region=region_base,
+    )
+    return MatchTimelineResponse(
+        match_id=timeline.match_id,
+        frame_interval=timeline.frame_interval or 0,
+        frames=list(info.get("frames") or []),
+    )
+
+
+@router.get("/{match_id}/recap/{puuid}", response_model=MatchRecapResponse)
+async def get_match_recap(
+    match_id: str,
+    puuid: str,
+    db: AsyncSession = Depends(get_db),
+    timeline_repo: MatchTimelineRepository = Depends(get_match_timeline_repository),
+):
+    """
+    Build a player-focused deep recap from stored Match V5 timeline data.
+
+    Fetch the match and timeline first, then call this endpoint with the player PUUID.
+    """
+    match_repo = MatchRepository(db)
+    participant_repo = MatchParticipantRepository(db)
+    match = await match_repo.get_by_match_id(match_id)
+    if not match:
+        raise HTTPException(status_code=404, detail=f"Match {match_id} not found")
+
+    participant = await participant_repo.get_participant(match_id, puuid)
+    if not participant:
+        raise HTTPException(status_code=404, detail=f"Participant {puuid} not found")
+
+    timeline = await timeline_repo.get_by_match_id(match_id)
+    if not timeline:
+        raise HTTPException(status_code=404, detail=f"Timeline {match_id} not found")
+
+    participant_id = _participant_id_for_puuid(timeline.timeline_json, puuid)
+    if participant_id is None:
+        raise HTTPException(status_code=404, detail=f"Timeline participant {puuid} not found")
+
+    recap = build_match_recap(
+        timeline=timeline.timeline_json,
+        participant_id=participant_id,
+        participant_team_id=participant.team_id,
+        game_duration=match.game_duration,
+    )
+    return MatchRecapResponse(
+        match_id=match_id,
+        participant=MatchRecapParticipant(
+            puuid=puuid,
+            participant_id=participant_id,
+            team_id=participant.team_id,
+            champion_name=participant.champion_name,
+            team_position=participant.team_position,
+        ),
+        timeline_stats=recap["timeline_stats"],
+        match_phase_summary=recap["match_phase_summary"],
+        resource_windows=recap["resource_windows"],
+        key_events=recap["key_events"],
+        insights=recap["insights"],
     )
 
 

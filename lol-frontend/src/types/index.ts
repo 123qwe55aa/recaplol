@@ -150,5 +150,49 @@ export interface CoachChatResponse {
   cited_priorities?: string[];
 }
 
+export interface MatchTimelineResponse {
+  match_id: string;
+  frame_interval: number;
+  frames: Record<string, unknown>[];
+}
+
+export interface MatchRecapInsight {
+  type: string;
+  severity: string;
+  title: string;
+  evidence: string[];
+  recommendation: string;
+}
+
+export interface MatchRecapParticipant {
+  puuid: string;
+  participant_id: number;
+  team_id?: number | null;
+  champion_name?: string | null;
+  team_position?: string | null;
+}
+
+export interface MatchRecapResponse {
+  match_id: string;
+  participant: MatchRecapParticipant;
+  timeline_stats: {
+    kills?: number;
+    deaths?: number;
+    assists?: number;
+    early_deaths?: number;
+    resource_deaths?: number;
+    gold_at_10?: number | null;
+    cs_at_10?: number | null;
+    cs_per_min_at_10?: number | null;
+    gold_at_14?: number | null;
+    cs_at_14?: number | null;
+    cs_per_min_at_14?: number | null;
+  };
+  match_phase_summary: Record<string, unknown>;
+  resource_windows: Array<Record<string, unknown>>;
+  key_events: Record<string, unknown>;
+  insights: MatchRecapInsight[];
+}
+
 export type QueueType = 'RANKED_SOLO_5x5' | 'RANKED_FLEX_SR' | 'RANKED_TFT' | 'ARKANE';
 export type RegionCode = 'kr' | 'na' | 'euw' | 'eune' | 'jp' | 'oce' | 'ru' | 'br' | 'las' | 'lan' | 'tr' | 'sg' | 'my' | 'ph' | 'th' | 'tw' | 'vn';

@@ -1,6 +1,6 @@
 from app.repositories.base import BaseRepository
 from app.repositories.player import PlayerRepository, ChampionMasteryRepository
-from app.repositories.match import MatchRepository, MatchParticipantRepository
+from app.repositories.match import MatchRepository, MatchParticipantRepository, MatchTimelineRepository
 
 __all__ = [
     "BaseRepository",
@@ -8,4 +8,5 @@ __all__ = [
     "ChampionMasteryRepository",
     "MatchRepository",
     "MatchParticipantRepository",
+    "MatchTimelineRepository",
 ]

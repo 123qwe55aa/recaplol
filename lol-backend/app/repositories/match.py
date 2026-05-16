@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, desc, func
 from datetime import datetime
 
-from app.models.match import Match, MatchParticipant
+from app.models.match import Match, MatchParticipant, MatchTimeline
 from app.repositories.base import BaseRepository
 
 
@@ -108,3 +108,39 @@ class MatchParticipantRepository(BaseRepository[MatchParticipant]):
                 results.append(participant)
         await self.session.flush()
         return results
+
+
+class MatchTimelineRepository(BaseRepository[MatchTimeline]):
+    def __init__(self, session: AsyncSession):
+        super().__init__(MatchTimeline, session)
+
+    async def get_by_match_id(self, match_id: str) -> Optional[MatchTimeline]:
+        result = await self.session.execute(
+            select(MatchTimeline).where(MatchTimeline.match_id == match_id)
+        )
+        return result.scalar_one_or_none()
+
+    async def upsert_timeline(
+        self,
+        match_id: str,
+        timeline_json: dict,
+        frame_interval: Optional[int] = None,
+        fetched_region: Optional[str] = None,
+    ) -> MatchTimeline:
+        existing = await self.get_by_match_id(match_id)
+        if existing:
+            existing.timeline_json = timeline_json
+            existing.frame_interval = frame_interval
+            existing.fetched_region = fetched_region
+            await self.session.flush()
+            return existing
+
+        timeline = MatchTimeline(
+            match_id=match_id,
+            timeline_json=timeline_json,
+            frame_interval=frame_interval,
+            fetched_region=fetched_region,
+        )
+        self.session.add(timeline)
+        await self.session.flush()
+        return timeline
