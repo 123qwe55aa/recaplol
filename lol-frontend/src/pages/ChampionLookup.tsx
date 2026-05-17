@@ -239,6 +239,22 @@ export function ChampionLookupPage() {
                   </div>
                 </div>
               </div>
+
+              <div className="bg-gray-800 rounded-2xl p-6 lg:col-span-2">
+                <h3 className="text-xl font-bold text-white mb-4">最佳组合英雄</h3>
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+                  {(searchSummary.synergies ?? []).length > 0 ? searchSummary.synergies.slice(0, 5).map((item, idx) => (
+                    <div key={`${item.champion_name}-${idx}`} className="bg-gray-700 rounded-lg px-3 py-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-gray-400 text-sm">#{idx + 1}</span>
+                        <span className="text-green-400 font-semibold">{formatRate(item.win_rate)}</span>
+                      </div>
+                      <p className="text-white font-medium mt-2 truncate">{item.champion_name}</p>
+                      <p className="text-gray-400 text-sm mt-1">选用率 {formatRate(item.pick_rate)}</p>
+                    </div>
+                  )) : <span className="text-gray-500">暂无数据</span>}
+                </div>
+              </div>
             </div>
           </div>
         )}

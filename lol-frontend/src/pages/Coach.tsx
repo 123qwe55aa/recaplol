@@ -58,6 +58,12 @@ function formatNumber(value?: number | null, digits = 1) {
   return Number(value).toFixed(digits).replace(/\.0$/, '');
 }
 
+function formatDelta(value?: number | null, digits = 1) {
+  if (value === null || value === undefined) return '-';
+  const formatted = formatNumber(value, digits);
+  return value > 0 ? `+${formatted}` : formatted;
+}
+
 function roleLabel(role?: string | null) {
   const labels: Record<string, string> = {
     TOP: '上路',
@@ -104,6 +110,7 @@ export function CoachPage() {
   const busy = reportQuery.isLoading || reportQuery.isFetching || generateReport.isPending;
   const dashboard = report?.dashboard ?? {};
   const averages = dashboard.averages ?? {};
+  const laneComparison = dashboard.lane_opponent_comparison;
   const recentMatches = report?.recent_matches ?? [];
   const kdaText = `${formatNumber(averages.kills)}/${formatNumber(averages.deaths)}/${formatNumber(averages.assists)}`;
   const metrics = [
@@ -267,6 +274,65 @@ export function CoachPage() {
               ))}
             </section>
 
+            {laneComparison && (laneComparison.sample_size ?? 0) > 0 && (
+              <section className="bg-gray-900 rounded-lg border border-gray-800 overflow-hidden">
+                <div className="p-5 flex items-center justify-between gap-3 border-b border-gray-800">
+                  <div>
+                    <p className="text-gray-500 text-xs uppercase">Same-role benchmark</p>
+                    <h2 className="text-xl font-bold text-white">对位横向对比</h2>
+                  </div>
+                  <span className="text-gray-400 text-sm">{laneComparison.sample_size} 局同位置样本</span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-950 text-gray-400">
+                      <tr>
+                        <th className="text-left font-medium px-4 py-3">指标</th>
+                        <th className="text-left font-medium px-4 py-3">你</th>
+                        <th className="text-left font-medium px-4 py-3">敌方同位置</th>
+                        <th className="text-left font-medium px-4 py-3">差值</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-800">
+                      {[
+                        { key: 'kills', label: '击杀', digits: 1 },
+                        { key: 'deaths', label: '死亡', digits: 1 },
+                        { key: 'assists', label: '助攻', digits: 1 },
+                        { key: 'cs_per_minute', label: 'CS/min', digits: 1 },
+                        { key: 'vision_score', label: '视野', digits: 1 },
+                        { key: 'gold_earned', label: '金币', digits: 0 },
+                      ].map((metric) => {
+                        const key = metric.key as keyof NonNullable<typeof laneComparison.player>;
+                        return (
+                          <tr key={metric.key} className="text-gray-300">
+                            <td className="px-4 py-3 text-white font-medium">{metric.label}</td>
+                            <td className="px-4 py-3">
+                              {formatNumber(laneComparison.player?.[key], metric.digits)}
+                            </td>
+                            <td className="px-4 py-3">
+                              {formatNumber(laneComparison.opponent?.[key], metric.digits)}
+                            </td>
+                            <td className="px-4 py-3 font-semibold text-yellow-200">
+                              {formatDelta(laneComparison.delta?.[key], metric.digits)}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            )}
+            {laneComparison && (laneComparison.sample_size ?? 0) === 0 && (
+              <section className="bg-gray-900 rounded-lg border border-gray-800 p-5">
+                <p className="text-gray-500 text-xs uppercase">Same-role benchmark</p>
+                <h2 className="text-xl font-bold text-white mt-1">对位横向对比</h2>
+                <p className="text-gray-300 text-sm mt-3">
+                  当前样本里缺少可匹配的敌方同位置数据，暂时无法生成横向对比。
+                </p>
+              </section>
+            )}
+
             {recentMatches.length > 0 && (
               <section className="bg-gray-900 rounded-lg border border-gray-800 overflow-hidden">
                 <div className="p-5 flex items-center justify-between gap-3 border-b border-gray-800">
@@ -281,6 +347,7 @@ export function CoachPage() {
                     <thead className="bg-gray-950 text-gray-400">
                       <tr>
                         <th className="text-left font-medium px-4 py-3">英雄</th>
+                        <th className="text-left font-medium px-4 py-3">敌方同位</th>
                         <th className="text-left font-medium px-4 py-3">位置</th>
                         <th className="text-left font-medium px-4 py-3">结果</th>
                         <th className="text-left font-medium px-4 py-3">KDA</th>
@@ -295,6 +362,7 @@ export function CoachPage() {
                         return (
                           <tr key={match.match_id} className="text-gray-300">
                             <td className="px-4 py-3 text-white font-medium">{match.champion_name || '-'}</td>
+                            <td className="px-4 py-3">{match.lane_opponent?.champion_name || '-'}</td>
                             <td className="px-4 py-3">{roleLabel(match.role)}</td>
                             <td className="px-4 py-3">
                               <span className={`px-2 py-1 rounded border text-xs ${resultClass(match.win)}`}>{resultLabel(match.win)}</span>

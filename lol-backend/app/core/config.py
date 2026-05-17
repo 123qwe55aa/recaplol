@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
+from pydantic import field_validator
 
 
 class Settings(BaseSettings):
@@ -54,6 +55,15 @@ class Settings(BaseSettings):
 
     # CORS
     cors_origins: list[str] = ["*"]
+
+    @field_validator("cors_origins", mode="before")
+    @classmethod
+    def parse_cors_origins(cls, value):
+        if isinstance(value, str):
+            if value.strip() == "":
+                return ["*"]
+            return [origin.strip() for origin in value.split(",") if origin.strip()]
+        return value
 
 
 @lru_cache

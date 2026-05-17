@@ -76,6 +76,62 @@ async def test_build_context_aggregates_player_recent_matches_and_fingerprint():
             gold_earned=12500,
         ),
     }
+    match_participants = {
+        "NA1_3": [
+            participants["NA1_3"],
+            MatchParticipant(
+                match_id="NA1_3",
+                puuid="enemy-1",
+                team_id=200,
+                team_position="MID",
+                champion_id=7,
+                champion_name="LeBlanc",
+                kills=5,
+                deaths=5,
+                assists=7,
+                total_minions_killed=170,
+                neutral_minions_killed=8,
+                vision_score=19,
+                gold_earned=10400,
+            ),
+        ],
+        "NA1_2": [
+            participants["NA1_2"],
+            MatchParticipant(
+                match_id="NA1_2",
+                puuid="enemy-2",
+                team_id=100,
+                team_position="MID",
+                champion_id=99,
+                champion_name="Lux",
+                kills=7,
+                deaths=4,
+                assists=6,
+                total_minions_killed=155,
+                neutral_minions_killed=5,
+                vision_score=16,
+                gold_earned=9800,
+            ),
+        ],
+        "NA1_1": [
+            participants["NA1_1"],
+            MatchParticipant(
+                match_id="NA1_1",
+                puuid="enemy-3",
+                team_id=200,
+                team_position="JUNGLE",
+                champion_id=76,
+                champion_name="Nidalee",
+                kills=6,
+                deaths=7,
+                assists=10,
+                total_minions_killed=28,
+                neutral_minions_killed=112,
+                vision_score=26,
+                gold_earned=11800,
+            ),
+        ],
+    }
     masteries = [
         ChampionMastery(
             puuid="puuid-1",
@@ -111,6 +167,9 @@ async def test_build_context_aggregates_player_recent_matches_and_fingerprint():
                     participant_repo.return_value.get_participant = AsyncMock(
                         side_effect=lambda match_id, puuid: participants[match_id]
                     )
+                    participant_repo.return_value.get_participants_by_match = AsyncMock(
+                        side_effect=lambda match_id: match_participants[match_id]
+                    )
                     mastery_repo.return_value.get_by_puuid = AsyncMock(
                         return_value=masteries
                     )
@@ -140,4 +199,10 @@ async def test_build_context_aggregates_player_recent_matches_and_fingerprint():
     }
     assert context["win_rate"] == 1.0
     assert context["matches"][1]["win"] is True
+    assert context["matches"][0]["lane_opponent"]["champion_name"] == "LeBlanc"
+    assert context["matches"][0]["lane_opponent"]["cs"] == 178.0
+    assert context["lane_opponent_comparison"]["sample_size"] == 3
+    assert context["lane_opponent_comparison"]["player"]["cs_per_minute"] == 6.63
+    assert context["lane_opponent_comparison"]["opponent"]["cs_per_minute"] == 6.37
+    assert context["lane_opponent_comparison"]["delta"]["gold_earned"] == 233.33
     assert context["data_fingerprint"] == duplicate["data_fingerprint"]

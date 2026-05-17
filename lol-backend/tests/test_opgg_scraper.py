@@ -55,6 +55,67 @@ SAMPLE_VS_PAGE_HTML = """
 </html>
 """
 
+SAMPLE_CURRENT_COUNTERS_PAGE_HTML = """
+<html>
+<body>
+    <ul class="border-t border-t-gray-200">
+        <li class="cursor-pointer bg-gray-0 hover:bg-gray-100 border-b border-gray-200 flex">
+            <img alt="Smolder" src="/champion/Smolder.png" />
+            <span>Smolder</span>
+            <span>43.62</span><span>%</span>
+            <span>10,509</span>
+        </li>
+        <li class="cursor-pointer bg-gray-0 hover:bg-gray-100 border-b border-gray-200 flex">
+            <img alt="Corki" src="/champion/Corki.png" />
+            <span>Corki</span>
+            <span>52.8</span><span>%</span>
+            <span>928</span>
+        </li>
+    </ul>
+</body>
+</html>
+"""
+
+SAMPLE_SYNERGIES_PAGE_HTML = """
+<html>
+<body>
+    <table>
+        <thead>
+            <tr><th></th><th>Pick rate</th><th>Win rate</th></tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><img alt="Lulu" src="/champion/Lulu.png" /><span>Lulu</span></td>
+                <td><strong>12.4%</strong></td>
+                <td><strong>56.7%</strong></td>
+            </tr>
+            <tr>
+                <td><img alt="Nami" src="/champion/Nami.png" /><span>Nami</span></td>
+                <td><strong>9.8%</strong></td>
+                <td><strong>54.2%</strong></td>
+            </tr>
+        </tbody>
+    </table>
+</body>
+</html>
+"""
+
+SAMPLE_UGG_DUOS_PAYLOAD = [
+    {
+        "adc_supp": [
+            [81, 3, 0, 0, 117, 2, 0, 0, 567, 1000, 1.23, None, None],   # Ezreal + Lulu => 56.7%
+            [117, 2, 0, 0, 81, 3, 0, 0, 530, 1000, 1.12, None, None],   # duplicate reversed
+            [81, 3, 0, 0, 267, 2, 0, 0, 492, 1000, 0.91, None, None],   # Ezreal + Nami => 49.2%
+        ],
+        "mid_jungle": [],
+        "jungle_supp": [],
+        "top_jungle": [],
+    },
+    "16_10",
+    0.0,
+    0,
+]
+
 SAMPLE_EMPTY_PAGE_HTML = """
 <html>
 <body>
@@ -109,7 +170,7 @@ class TestOPGGScraper:
         """Test building VS (counters) URL."""
         url = scraper._build_vs_url("ahri", "euw", "RANKED_SOLO_5x5", "platinum")
         assert "euw.op.gg" in url
-        assert "champions/ahri/vs" in url
+        assert "lol/champions/ahri/counters" in url
         assert "queue=solo" in url
 
     # Test parsing methods
@@ -125,10 +186,6 @@ class TestOPGGScraper:
         assert scraper._parse_win_rate("N/A") is None
         assert scraper._parse_win_rate("abc") is None
 
-    @pytest.mark.skipif(
-        True,  # Skip because lxml not available in test env
-        reason="lxml not installed - BeautifulSoup parsing test"
-    )
     def test_parse_build_page(self, scraper, filters):
         """Test parsing build page HTML."""
         result = scraper._parse_build_page(SAMPLE_BUILD_PAGE_HTML, filters)
@@ -141,10 +198,6 @@ class TestOPGGScraper:
         assert len(result["items"]["core"]) == 3
         assert result["items"]["core"][0]["name"] == "Infinity Edge"
 
-    @pytest.mark.skipif(
-        True,  # Skip because lxml not available in test env
-        reason="lxml not installed - BeautifulSoup parsing test"
-    )
     def test_parse_build_page_fallback_selectors(self, scraper, filters):
         """Test parsing with fallback selectors."""
         html = """
@@ -155,10 +208,6 @@ class TestOPGGScraper:
         result = scraper._parse_build_page(html, filters)
         assert result["win_rate"] == 51.5
 
-    @pytest.mark.skipif(
-        True,  # Skip because lxml not available in test env
-        reason="lxml not installed - BeautifulSoup parsing test"
-    )
     def test_parse_build_page_no_data(self, scraper, filters):
         """Test parsing page with no data."""
         result = scraper._parse_build_page(SAMPLE_EMPTY_PAGE_HTML, filters)
@@ -168,10 +217,6 @@ class TestOPGGScraper:
         assert result["games_played"] is None
         assert result["items"]["core"] == []
 
-    @pytest.mark.skipif(
-        True,  # Skip because lxml not available in test env
-        reason="lxml not installed - BeautifulSoup parsing test"
-    )
     def test_parse_vs_page(self, scraper, filters):
         """Test parsing VS (counter matchups) page."""
         result = scraper._parse_vs_page(SAMPLE_VS_PAGE_HTML, filters)
@@ -186,15 +231,44 @@ class TestOPGGScraper:
         assert result["countered_by"][0]["champion_name"] == "Akali"
         assert result["countered_by"][0]["win_rate"] == 53.1
 
-    @pytest.mark.skipif(
-        True,  # Skip because lxml not available in test env
-        reason="lxml not installed - BeautifulSoup parsing test"
-    )
     def test_parse_vs_page_no_counters(self, scraper, filters):
         """Test parsing VS page with no counters."""
         result = scraper._parse_vs_page(SAMPLE_EMPTY_PAGE_HTML, filters)
         assert result["counters"] == []
         assert result["countered_by"] == []
+
+    def test_parse_current_counters_page_list(self, scraper, filters):
+        """Test parsing current OP.GG counters list markup."""
+        result = scraper._parse_vs_page(SAMPLE_CURRENT_COUNTERS_PAGE_HTML, filters)
+
+        assert result["counters"][0]["champion_name"] == "Smolder"
+        assert result["counters"][0]["win_rate"] == 43.62
+        assert result["counters"][0]["games"] == 10509
+        assert result["countered_by"][0]["champion_name"] == "Corki"
+        assert result["countered_by"][0]["win_rate"] == 52.8
+        assert result["countered_by"][0]["games"] == 928
+
+    def test_parse_synergies_page(self, scraper, filters):
+        """Test parsing OP.GG champion synergy table."""
+        result = scraper._parse_synergies_page(SAMPLE_SYNERGIES_PAGE_HTML, filters)
+
+        assert result[0]["champion_name"] == "Lulu"
+        assert result[0]["pick_rate"] == 12.4
+        assert result[0]["win_rate"] == 56.7
+        assert result[1]["champion_name"] == "Nami"
+
+    def test_parse_ugg_duos_payload(self, scraper):
+        """Test parsing U.GG duos payload for a champion."""
+        champ_map = {
+            81: "Ezreal",
+            117: "Lulu",
+            267: "Nami",
+        }
+        result = scraper._parse_ugg_duos_payload(SAMPLE_UGG_DUOS_PAYLOAD, 81, champ_map)
+        assert result[0]["champion_name"] == "Lulu"
+        assert result[0]["win_rate"] == 56.7
+        assert result[0]["games"] == 1000
+        assert result[1]["champion_name"] == "Nami"
 
     # Test cache key generation
     def test_get_cache_key_deterministic(self, scraper):
@@ -287,6 +361,26 @@ class TestOPGGScraperIntegration:
         assert scraper_with_mock._success_count == 1
 
     @pytest.mark.asyncio
+    async def test_fetch_page_initializes_client_if_missing(self):
+        """Test fetch page lazily initializes HTTP client."""
+        scraper = OPGGScraper()
+        mock_client = AsyncMock()
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = SAMPLE_BUILD_PAGE_HTML
+        mock_client.get.return_value = mock_response
+
+        with patch("app.services.opgg_scraper.httpx.AsyncClient", return_value=mock_client):
+            result = await scraper._fetch_page(
+                "https://op.gg/champions/ahri/build",
+                "ahri",
+                {"region": "kr"},
+            )
+
+        assert result == SAMPLE_BUILD_PAGE_HTML
+        assert scraper._client is mock_client
+
+    @pytest.mark.asyncio
     async def test_fetch_page_rate_limited(self, scraper_with_mock, mock_client):
         """Test rate limited response."""
         mock_response = MagicMock()
@@ -318,10 +412,6 @@ class TestOPGGScraperIntegration:
 
         assert scraper_with_mock._failure_count == 1
 
-    @pytest.mark.skipif(
-        True,  # Skip because lxml not available in test env
-        reason="lxml not installed - BeautifulSoup parsing test"
-    )
     @pytest.mark.asyncio
     async def test_get_champion_build_success(self, scraper_with_mock, mock_client):
         """Test successful champion build retrieval."""
@@ -351,6 +441,35 @@ class TestOPGGScraperIntegration:
         assert "counters" in result["matchups"]
         assert "countered_by" in result["matchups"]
         assert result["cached"] is False
+
+    @pytest.mark.asyncio
+    async def test_get_champion_build_uses_ugg_when_opgg_synergies_empty(self, scraper_with_mock):
+        """Should fill synergies from U.GG when OP.GG returns none."""
+        build_data = {
+            "champion_name": "ezreal",
+            "win_rate": 50.0,
+            "pick_rate": 20.0,
+            "games_played": 1000,
+            "roles": [],
+            "items": {"start": [], "core": [], "final": []},
+            "skills": [],
+            "runes": [],
+            "matchups": {"counters": [], "countered_by": []},
+            "synergies": [],
+            "last_updated": datetime.now().isoformat(),
+            "source": "op.gg",
+        }
+
+        with patch.object(scraper_with_mock, "_fetch_page", new_callable=AsyncMock) as mock_fetch, \
+             patch.object(scraper_with_mock, "_parse_build_page", return_value=build_data), \
+             patch.object(scraper_with_mock, "_parse_vs_page", return_value={"counters": [], "countered_by": []}), \
+             patch.object(scraper_with_mock, "_fetch_synergies_with_fallbacks", new_callable=AsyncMock, return_value=[]), \
+             patch.object(scraper_with_mock, "_fetch_ugg_synergies_fallback", new_callable=AsyncMock, return_value=[{"champion_name": "Lulu", "win_rate": 56.7, "pick_rate": None, "games": 1000}]), \
+             patch.object(scraper_with_mock, "_set_cache", new_callable=AsyncMock):
+            mock_fetch.return_value = "<html></html>"
+            result = await scraper_with_mock.get_champion_build("ezreal", use_cache=False)
+
+        assert result["synergies"][0]["champion_name"] == "Lulu"
 
     @pytest.mark.asyncio
     async def test_get_champion_build_cache_hit(self, scraper_with_mock):

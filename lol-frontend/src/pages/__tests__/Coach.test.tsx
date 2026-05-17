@@ -40,6 +40,33 @@ const reportResponse: CoachReportResponse = {
         cs_per_minute: 5.4,
         vision_score: 14,
       },
+      lane_opponent_comparison: {
+        sample_size: 2,
+        player: {
+          kills: 5.5,
+          deaths: 6,
+          assists: 10.5,
+          cs_per_minute: 5.8,
+          vision_score: 16,
+          gold_earned: 10100,
+        },
+        opponent: {
+          kills: 6,
+          deaths: 5,
+          assists: 8,
+          cs_per_minute: 6.2,
+          vision_score: 18,
+          gold_earned: 10550,
+        },
+        delta: {
+          kills: -0.5,
+          deaths: 1,
+          assists: 2.5,
+          cs_per_minute: -0.4,
+          vision_score: -2,
+          gold_earned: -450,
+        },
+      },
     },
     recent_matches: [
       {
@@ -53,6 +80,15 @@ const reportResponse: CoachReportResponse = {
         cs: 164,
         vision_score: 14,
         game_duration: 1800,
+        lane_opponent: {
+          champion_name: 'Syndra',
+          kills: 8,
+          deaths: 6,
+          assists: 7,
+          cs: 181,
+          vision_score: 17,
+          gold_earned: 10600,
+        },
       },
       {
         match_id: 'NA1_2',
@@ -65,6 +101,15 @@ const reportResponse: CoachReportResponse = {
         cs: 198,
         vision_score: 18,
         game_duration: 1900,
+        lane_opponent: {
+          champion_name: 'Viktor',
+          kills: 4,
+          deaths: 5,
+          assists: 9,
+          cs: 205,
+          vision_score: 19,
+          gold_earned: 10500,
+        },
       },
     ],
     priorities: [
@@ -176,6 +221,55 @@ describe('CoachPage', () => {
     expect(screen.getByText('最近比赛样本')).toBeInTheDocument();
     expect(screen.getByText('Ahri')).toBeInTheDocument();
     expect(screen.getByText('Orianna')).toBeInTheDocument();
+  });
+
+  it('renders same-role enemy comparison from the coach report', () => {
+    mockUseCoachReport.mockReturnValue({
+      data: reportResponse,
+      isLoading: false,
+      isFetching: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+
+    renderPage();
+
+    expect(screen.getByText('对位横向对比')).toBeInTheDocument();
+    expect(screen.getByText('2 局同位置样本')).toBeInTheDocument();
+    expect(screen.getByText('Syndra')).toBeInTheDocument();
+    expect(screen.getByText('Viktor')).toBeInTheDocument();
+    expect(screen.getByText('-0.4')).toBeInTheDocument();
+    expect(screen.getByText('-450')).toBeInTheDocument();
+  });
+
+  it('renders empty comparison state when no same-role enemy sample exists', () => {
+    const zeroSample: CoachReportResponse = {
+      ...reportResponse,
+      report: {
+        ...reportResponse.report!,
+        dashboard: {
+          ...reportResponse.report!.dashboard!,
+          lane_opponent_comparison: {
+            sample_size: 0,
+            player: {},
+            opponent: {},
+            delta: {},
+          },
+        },
+      },
+    };
+    mockUseCoachReport.mockReturnValue({
+      data: zeroSample,
+      isLoading: false,
+      isFetching: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+
+    renderPage();
+
+    expect(screen.getByText('对位横向对比')).toBeInTheDocument();
+    expect(screen.getByText('当前样本里缺少可匹配的敌方同位置数据，暂时无法生成横向对比。')).toBeInTheDocument();
   });
 
   it('renders chat answer after submitting a follow-up question', async () => {

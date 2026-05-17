@@ -1,0 +1,37 @@
+services:
+  - type: web
+    name: recaplol-backend
+    runtime: docker
+    rootDir: lol-backend
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: DEBUG
+        value: "false"
+      - key: HOST
+        value: "0.0.0.0"
+      - key: PORT
+        value: "8000"
+      - key: CORS_ORIGINS
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: RIOT_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_MODEL
+        value: gpt-4o-mini
+
+  - type: web
+    name: recaplol-frontend
+    runtime: static
+    rootDir: lol-frontend
+    buildCommand: pnpm install --frozen-lockfile && pnpm build
+    staticPublishPath: dist
+    pullRequestPreviewsEnabled: false
+    envVars:
+      - key: VITE_API_BASE_URL
+        sync: false

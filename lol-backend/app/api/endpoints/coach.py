@@ -438,6 +438,9 @@ def _build_dashboard_context(context: dict[str, Any]) -> dict[str, Any]:
         "win_rate": context.get("win_rate"),
         "primary_role": context.get("primary_role"),
         "averages": dict(context.get("averages") or {}),
+        "lane_opponent_comparison": dict(
+            context.get("lane_opponent_comparison") or {}
+        ),
         "primary_champions": _normalize_primary_champions(
             context.get("primary_champions") or []
         ),

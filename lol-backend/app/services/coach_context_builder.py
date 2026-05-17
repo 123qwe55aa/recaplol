@@ -38,7 +38,10 @@ class CoachContextBuilder:
         champion_counts: dict[int, dict] = {}
 
         totals = defaultdict(float)
+        opponent_totals = defaultdict(float)
         total_minutes = 0.0
+        opponent_total_minutes = 0.0
+        opponent_sample_size = 0
 
         for match_id in recent_match_ids:
             match = await self.match_repo.get_by_match_id(match_id)
@@ -56,6 +59,10 @@ class CoachContextBuilder:
             )
             if role:
                 role_counts[str(role)] += 1
+            participants = await self.participant_repo.get_participants_by_match(
+                match_id
+            )
+            lane_opponent = _find_lane_opponent(participant, participants)
 
             champion_id = _get(participant, "champion_id")
             champion_name = _get(participant, "champion_name")
@@ -87,6 +94,44 @@ class CoachContextBuilder:
             totals["cs"] += cs
             totals["vision_score"] += _number(_get(participant, "vision_score"))
             totals["gold_earned"] += _number(_get(participant, "gold_earned"))
+            lane_opponent_dict = None
+            if lane_opponent:
+                opponent_cs = _number(
+                    _get(lane_opponent, "total_minions_killed")
+                ) + _number(_get(lane_opponent, "neutral_minions_killed"))
+                opponent_duration_seconds = _number(
+                    _get(lane_opponent, "time_played")
+                ) or duration_seconds
+                opponent_minutes = opponent_duration_seconds / 60.0
+                if not opponent_duration_seconds:
+                    opponent_minutes = 0.0
+                opponent_total_minutes += opponent_minutes
+                opponent_sample_size += 1
+                opponent_totals["kills"] += _number(_get(lane_opponent, "kills"))
+                opponent_totals["deaths"] += _number(_get(lane_opponent, "deaths"))
+                opponent_totals["assists"] += _number(_get(lane_opponent, "assists"))
+                opponent_totals["cs"] += opponent_cs
+                opponent_totals["vision_score"] += _number(
+                    _get(lane_opponent, "vision_score")
+                )
+                opponent_totals["gold_earned"] += _number(
+                    _get(lane_opponent, "gold_earned")
+                )
+                lane_opponent_dict = {
+                    "puuid": _get(lane_opponent, "puuid"),
+                    "summoner_name": _get(lane_opponent, "summoner_name"),
+                    "champion_id": _get(lane_opponent, "champion_id"),
+                    "champion_name": _get(lane_opponent, "champion_name"),
+                    "role": _get(lane_opponent, "team_position")
+                    or _get(lane_opponent, "individual_position"),
+                    "kills": _get(lane_opponent, "kills"),
+                    "deaths": _get(lane_opponent, "deaths"),
+                    "assists": _get(lane_opponent, "assists"),
+                    "cs": opponent_cs,
+                    "vision_score": _get(lane_opponent, "vision_score"),
+                    "gold_earned": _get(lane_opponent, "gold_earned"),
+                    "game_duration": duration_seconds,
+                }
 
             rows.append(
                 {
@@ -102,11 +147,18 @@ class CoachContextBuilder:
                     "vision_score": _get(participant, "vision_score"),
                     "gold_earned": _get(participant, "gold_earned"),
                     "game_duration": _get(match, "game_duration"),
+                    "lane_opponent": lane_opponent_dict,
                 }
             )
 
         match_count = len(rows)
         averages = _build_averages(totals, match_count, total_minutes)
+        opponent_averages = _build_averages(
+            opponent_totals, opponent_sample_size, opponent_total_minutes
+        )
+        lane_opponent_comparison = _build_lane_opponent_comparison(
+            averages, opponent_averages, opponent_sample_size
+        )
         primary_champions = sorted(
             champion_counts.values(),
             key=lambda item: (-item["games"], str(item.get("champion_name") or "")),
@@ -121,11 +173,37 @@ class CoachContextBuilder:
             "primary_champions": primary_champions,
             "champion_masteries": [_mastery_dict(mastery) for mastery in masteries],
             "averages": averages,
+            "lane_opponent_comparison": lane_opponent_comparison,
             "win_rate": round(wins / known_results, 2) if known_results else None,
             "matches": rows,
         }
         context["data_fingerprint"] = _fingerprint(context)
         return context
+
+
+def _build_lane_opponent_comparison(
+    player: dict[str, float], opponent: dict[str, float], sample_size: int
+) -> dict:
+    fields = [
+        "kills",
+        "deaths",
+        "assists",
+        "cs",
+        "cs_per_minute",
+        "vision_score",
+        "gold_earned",
+    ]
+    if sample_size == 0:
+        return {"sample_size": 0, "player": {}, "opponent": {}, "delta": {}}
+    return {
+        "sample_size": sample_size,
+        "player": {field: player.get(field, 0.0) for field in fields},
+        "opponent": {field: opponent.get(field, 0.0) for field in fields},
+        "delta": {
+            field: round(player.get(field, 0.0) - opponent.get(field, 0.0), 2)
+            for field in fields
+        },
+    }
 
 
 def _build_averages(totals: dict[str, float], count: int, total_minutes: float) -> dict:
@@ -163,12 +241,46 @@ def _derive_win(match: Any, participant: Any) -> bool | None:
     return blue_win if int(team_id) == 100 else not blue_win
 
 
+def _find_lane_opponent(participant: Any, participants: list[Any]) -> Any | None:
+    role = _normalize_role(
+        _get(participant, "team_position") or _get(participant, "individual_position")
+    )
+    team_id = _get(participant, "team_id")
+    if not role or team_id is None:
+        return None
+
+    for candidate in participants:
+        if _get(candidate, "puuid") == _get(participant, "puuid"):
+            continue
+        if _get(candidate, "team_id") == team_id:
+            continue
+        candidate_role = _normalize_role(
+            _get(candidate, "team_position") or _get(candidate, "individual_position")
+        )
+        if candidate_role == role:
+            return candidate
+    return None
+
+
+def _normalize_role(role: Any) -> str | None:
+    if not role:
+        return None
+    aliases = {
+        "MID": "MIDDLE",
+        "ADC": "BOTTOM",
+        "SUPPORT": "UTILITY",
+    }
+    normalized = str(role).upper()
+    return aliases.get(normalized, normalized)
+
+
 def _fingerprint(context: dict) -> str:
     payload = {
         "player": context.get("player"),
         "recent_match_ids": context.get("recent_match_ids"),
         "match_count": context.get("match_count"),
         "averages": context.get("averages"),
+        "lane_opponent_comparison": context.get("lane_opponent_comparison"),
         "win_rate": context.get("win_rate"),
         "matches": context.get("matches"),
     }

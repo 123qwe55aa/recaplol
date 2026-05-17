@@ -932,6 +932,9 @@ class TestOPGGEndpoints:
                     {"champion_name": "Akali", "win_rate": 53.1, "games": 7654, "advantage": 3.1}
                 ],
             },
+            "synergies": [
+                {"champion_name": "Lulu", "win_rate": 56.7, "pick_rate": 12.4, "games": 0}
+            ],
             "last_updated": "2024-01-15T10:30:00",
             "source": "op.gg",
             "cached": False,
@@ -950,6 +953,7 @@ class TestOPGGEndpoints:
                 assert data["success"] is True
                 assert data["data"]["champion_name"] == "ahri"
                 assert data["data"]["win_rate"] == 52.34
+                assert data["data"]["synergies"][0]["champion_name"] == "Lulu"
                 assert data["cached"] is False
 
     def test_get_champion_build_cached(self, mock_settings, mock_scraper):

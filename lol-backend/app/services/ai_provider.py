@@ -36,7 +36,7 @@ Return exactly one JSON object with this shape:
   "notes": "string|null",
   "follow_up_questions": ["string"]
 }
-Use 1-3 priorities. Evidence must quote supplied stats or match context. Do not use report_summary, findings, or positive_highlights.
+Use 1-3 priorities. Evidence must quote supplied stats, same-role enemy comparison, or match context. If context.lane_opponent_comparison.sample_size is greater than 0, include at least one evidence item that compares the player against the enemy in the same position. Do not use report_summary, findings, or positive_highlights.
 """.strip()
 
 CHAT_SCHEMA_INSTRUCTIONS = """
