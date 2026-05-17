@@ -170,6 +170,60 @@ http://127.0.0.1:3000
 
 During Vite development, `/api` is proxied to `http://localhost:8000`.
 
+## Deploy To Render (Free)
+
+This repo now includes a Render Blueprint file at `render.yaml` for one-click setup:
+
+- `recaplol-backend` (Docker web service, Free)
+- `recaplol-frontend` (Static site)
+
+### Deploy steps
+
+1. Push this repository to GitHub.
+2. In Render, choose New -> Blueprint and select this repo.
+3. In the backend service, set required env vars:
+   - `DATABASE_URL`
+   - `REDIS_URL`
+   - `RIOT_API_KEY`
+   - `OPENAI_API_KEY` (optional if AI features are disabled)
+4. After frontend gets a URL, set:
+   - Backend `CORS_ORIGINS=https://<your-frontend-domain>`
+5. Set frontend env var:
+   - `VITE_API_BASE_URL=https://<your-backend-domain>`
+6. Redeploy both services.
+
+### Notes for Free plan
+
+- Free backend web services spin down after ~15 minutes idle.
+- First request after idle has cold-start latency.
+- Do not put secrets in frontend env vars (`VITE_*` is public in browser bundles).
+
+## Frontend On GitHub Pages + Backend On Render
+
+This setup works well for this project:
+
+- Frontend: GitHub Pages
+- Backend: Render Web Service
+
+### GitHub Pages setup
+
+1. In GitHub repo settings, enable Pages and set source to "GitHub Actions".
+2. Add repository secret:
+   - `VITE_API_BASE_URL=https://<your-render-backend-domain>`
+3. Push to `main` to trigger `.github/workflows/deploy-pages.yml`.
+
+The workflow builds `lol-frontend`, publishes `dist`, and writes `404.html` for SPA route refresh support.
+
+### Render CORS setup for Pages
+
+Set backend env var:
+
+```env
+CORS_ORIGINS=https://123qwe55aa.github.io
+```
+
+If your Pages site uses a custom domain, use that domain instead.
+
 ## Useful Commands
 
 Run backend tests:
@@ -273,4 +327,3 @@ Current local verification:
 - Frontend tests: passing
 - Frontend production build: passing
 - Docker Compose stack: verified locally
-
