@@ -179,6 +179,17 @@ async def get_champion_build(
                 status_code=500,
                 detail=f"Failed to fetch OP.GG data: {str(e)}",
             )
+        except Exception as e:
+            logger.exception(
+                "opgg_unhandled_exception",
+                champ_name=champ_name,
+                error=str(e),
+                filters=filters,
+            )
+            raise HTTPException(
+                status_code=500,
+                detail=f"Unhandled OP.GG endpoint error: {str(e)}",
+            )
 
     # Should not reach here, but safety net
     raise HTTPException(

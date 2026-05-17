@@ -62,13 +62,20 @@ class OPGGScraper:
         "tw": "https://tw.op.gg",
         "vn": "https://vn.op.gg",
     }
+    UGG_DUOS_BASE = "https://stats2.u.gg/lol/1.5/duos/world"
+    UGG_QUEUE = "ranked_solo_5x5"
+    UGG_TIER = "emerald_plus"
+    UGG_PATCH_REGION = "1.5.0.json"
+    CDRAGON_CHAMPION_SUMMARY = "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-summary.json"
 
     # Default headers to mimic browser
     HEADERS = {
         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
         "Accept-Language": "en-US,en;q=0.5",
-        "Accept-Encoding": "gzip, deflate, br",
+        # Brotli responses require optional decoder support in the runtime.
+        # Prefer encodings that httpx can always decode in our container.
+        "Accept-Encoding": "gzip, deflate",
         "Connection": "keep-alive",
         "Upgrade-Insecure-Requests": "1",
     }
@@ -92,6 +99,7 @@ class OPGGScraper:
         self._success_count = 0
         self._failure_count = 0
         self._cache_hit_count = 0
+        self._champion_id_to_name: Dict[int, str] = {}
 
     async def __aenter__(self):
         self._client = httpx.AsyncClient(
@@ -104,6 +112,16 @@ class OPGGScraper:
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         if self._client:
             await self._client.aclose()
+
+    def _ensure_client(self) -> None:
+        """Lazily initialize HTTP client for singleton usage."""
+        if self._client is not None:
+            return
+        self._client = httpx.AsyncClient(
+            headers=self.HEADERS,
+            timeout=httpx.Timeout(self.timeout),
+            follow_redirects=True,
+        )
 
     async def _rate_limit(self):
         """Apply rate limiting between requests."""
@@ -130,6 +148,7 @@ class OPGGScraper:
 
     async def _fetch_page(self, url: str, champ_slug: str, filters: Dict[str, Any]) -> str:
         """Fetch a page with rate limiting and retry logic."""
+        self._ensure_client()
         await self._rate_limit()
 
         try:
@@ -247,7 +266,207 @@ class OPGGScraper:
             params.append(f"tier={tier}")
 
         param_str = "&".join(params) if params else ""
-        return f"{base}/champions/{champ_slug}/vs?{param_str}"
+        return f"{base}/lol/champions/{champ_slug}/counters?{param_str}"
+
+    def _build_synergies_url(
+        self,
+        champ_slug: str,
+        region: str = "kr",
+        queue: str = "RANKED_SOLO_5x5",
+        tier: str = "overall",
+        role: str = "",
+    ) -> str:
+        """Build OP.GG URL for champion synergies page."""
+        base = self.BASE_URLS.get(region.lower(), self.BASE_URLS["kr"])
+
+        params = []
+        if queue and queue != "RANKED_SOLO_5x5":
+            queue_map = {
+                "RANKED_FLEX_SR": "flex",
+                "RANKED_TFT": "tft",
+                "ARKANE": "aram",
+            }
+            params.append(f"queue={queue_map.get(queue, 'solo')}")
+        else:
+            params.append("queue=solo")
+
+        if tier and tier != "overall":
+            params.append(f"tier={tier}")
+
+        param_str = "&".join(params) if params else ""
+        role_path = f"/{role}" if role else ""
+        return f"{base}/lol/champions/{champ_slug}/synergies{role_path}?{param_str}"
+
+    async def _fetch_synergies_with_fallbacks(
+        self,
+        champ_slug: str,
+        filters: Dict[str, Any],
+        region: str,
+        queue: str,
+        tier: str,
+        role: str,
+    ) -> List[Dict[str, Any]]:
+        """Fetch synergies with fallback strategies when sample size is insufficient."""
+        candidates = [
+            self._build_synergies_url(champ_slug, region, queue, tier, role),
+        ]
+        if not role:
+            candidates.append(self._build_synergies_url(champ_slug, region, queue, tier, "adc"))
+
+        global_base = self.BASE_URLS["kr"]
+        candidates.append(
+            f"{global_base}/lol/champions/{champ_slug}/synergies?queue=solo&type=ranked&tier=emerald_plus&region=global"
+        )
+        candidates.append(
+            f"{global_base}/lol/champions/{champ_slug}/synergies/adc?queue=solo&type=ranked&tier=emerald_plus&region=global"
+        )
+
+        seen = set()
+        for url in candidates:
+            if url in seen:
+                continue
+            seen.add(url)
+            try:
+                html = await self._fetch_page(url, champ_slug, filters)
+                parsed = self._parse_synergies_page(html, filters)
+                if parsed:
+                    return parsed
+            except Exception as e:
+                logger.warning("opgg_synergies_fallback_failed", champ_slug=champ_slug, url=url, error=str(e))
+                continue
+        return []
+
+    async def _fetch_ugg_synergies_fallback(self, champ_slug: str) -> List[Dict[str, Any]]:
+        """Fallback synergy source from U.GG duos when OP.GG has no usable sample size."""
+        champ_map = await self._get_champion_id_map()
+        if not champ_map:
+            return []
+
+        champ_name = champ_slug.replace("-", " ").lower()
+        target_ids = [cid for cid, name in champ_map.items() if name.lower() == champ_name]
+        if not target_ids:
+            return []
+        target_id = target_ids[0]
+
+        patch_candidates = await self._build_ugg_patch_candidates()
+        for patch in patch_candidates:
+            url = f"{self.UGG_DUOS_BASE}/{patch}/{self.UGG_QUEUE}/{self.UGG_TIER}/{self.UGG_PATCH_REGION}"
+            try:
+                payload = await self._fetch_json(url)
+                parsed = self._parse_ugg_duos_payload(payload, target_id, champ_map)
+                if parsed:
+                    return parsed[:5]
+            except Exception as e:
+                logger.warning("ugg_synergies_fetch_failed", champ_slug=champ_slug, url=url, error=str(e))
+        return []
+
+    async def _fetch_json(self, url: str) -> Any:
+        """Fetch JSON payload with shared client and timeout settings."""
+        self._ensure_client()
+        response = await self._client.get(url)
+        response.raise_for_status()
+        return response.json()
+
+    async def _get_champion_id_map(self) -> Dict[int, str]:
+        """Get champion ID -> canonical name mapping."""
+        if self._champion_id_to_name:
+            return self._champion_id_to_name
+        try:
+            payload = await self._fetch_json(self.CDRAGON_CHAMPION_SUMMARY)
+            mapping: Dict[int, str] = {}
+            for item in payload:
+                try:
+                    champ_id = int(item.get("id", 0))
+                except (TypeError, ValueError):
+                    continue
+                name = str(item.get("name", "")).strip()
+                if champ_id > 0 and name:
+                    mapping[champ_id] = name
+            self._champion_id_to_name = mapping
+            return mapping
+        except Exception as e:
+            logger.warning("champion_id_map_fetch_failed", error=str(e))
+            return {}
+
+    async def _build_ugg_patch_candidates(self) -> List[str]:
+        """Build likely U.GG patch paths like 16_10, with a small fallback window."""
+        candidates: List[str] = []
+        try:
+            versions = await self._fetch_json("https://ddragon.leagueoflegends.com/api/versions.json")
+            if versions and isinstance(versions, list):
+                major_minor = str(versions[0]).split(".")
+                if len(major_minor) >= 2:
+                    major = int(major_minor[0])
+                    minor = int(major_minor[1])
+                    for delta in range(0, 4):
+                        m = minor - delta
+                        if m > 0:
+                            candidates.append(f"{major}_{m}")
+        except Exception as e:
+            logger.warning("ugg_patch_discovery_failed", error=str(e))
+
+        candidates.extend(["16_10", "16_9", "16_8"])
+        seen = set()
+        uniq: List[str] = []
+        for patch in candidates:
+            if patch in seen:
+                continue
+            seen.add(patch)
+            uniq.append(patch)
+        return uniq[:8]
+
+    def _parse_ugg_duos_payload(
+        self,
+        payload: Any,
+        target_id: int,
+        champ_map: Dict[int, str],
+    ) -> List[Dict[str, Any]]:
+        """Parse U.GG duos payload into ChampionSynergy-compatible rows."""
+        if not isinstance(payload, list) or not payload:
+            return []
+        results: List[Dict[str, Any]] = []
+        seen: set[int] = set()
+
+        # Current payload shape: [ {adc_supp:[...], jungle_supp:[...], ...}, "16_10", 0.0, ... ]
+        groups = payload[0] if isinstance(payload[0], dict) else {}
+        if not isinstance(groups, dict):
+            return []
+
+        for data in groups.values():
+            if not isinstance(data, list):
+                continue
+            for row in data:
+                if not isinstance(row, list) or len(row) < 10:
+                    continue
+                try:
+                    champ_a = int(row[0])
+                    champ_b = int(row[4])
+                    duo_wins = float(row[8])
+                    duo_games = int(row[9])
+                except (TypeError, ValueError):
+                    continue
+                if duo_games <= 0:
+                    continue
+                if champ_a == target_id:
+                    partner_id = champ_b
+                elif champ_b == target_id:
+                    partner_id = champ_a
+                else:
+                    continue
+                if partner_id in seen:
+                    continue
+                partner_name = champ_map.get(partner_id)
+                if not partner_name:
+                    continue
+                seen.add(partner_id)
+                results.append({
+                    "champion_name": partner_name,
+                    "win_rate": round((duo_wins / duo_games) * 100, 2),
+                    "pick_rate": None,
+                    "games": duo_games,
+                })
+        results.sort(key=lambda item: (item.get("win_rate") or 0, item.get("games") or 0), reverse=True)
+        return results[:5]
 
     def _parse_win_rate(self, text: str) -> Optional[float]:
         """Parse win rate from text like '51.32%' or '51.3%'."""
@@ -275,77 +494,139 @@ class OPGGScraper:
             "skills": [],
             "runes": [],
             "matchups": {"counters": [], "countered_by": []},
+            "synergies": [],
             "last_updated": datetime.now().isoformat(),
             "source": "op.gg",
             **filters,
         }
 
-        # Try to find win rate - multiple selectors for robustness
-        win_rate_selectors = [
-            ".champion-stats-trend-rate",
-            ".win-rate",
-            '[class*="win"]',
-            ".stats-value",
-        ]
-        for selector in win_rate_selectors:
-            win_elem = soup.select_one(selector)
-            if win_elem:
-                text = win_elem.get_text()
-                result["win_rate"] = self._parse_win_rate(text)
-                if result["win_rate"]:
-                    break
+        # Parse headline stats from labeled rows (Win rate / Pick rate).
+        for stat_row in soup.select("li"):
+            label = stat_row.select_one("em")
+            value = stat_row.select_one("b")
+            if not label or not value:
+                continue
+            key = label.get_text(" ", strip=True).lower()
+            parsed = self._parse_win_rate(value.get_text(" ", strip=True))
+            if parsed is None:
+                continue
+            if key == "win rate" and result["win_rate"] is None:
+                result["win_rate"] = parsed
+            elif key == "pick rate" and result["pick_rate"] is None:
+                result["pick_rate"] = parsed
 
-        # Try to find pick rate
-        pick_selectors = [".pick-rate", '[class*="pick"]', ".ban-rate"]
-        for selector in pick_selectors:
-            pick_elem = soup.select_one(selector)
-            if pick_elem:
-                text = pick_elem.get_text()
-                result["pick_rate"] = self._parse_win_rate(text)
-                if result["pick_rate"]:
-                    break
-
-        # Find games played
-        games_selectors = [".games", '[class*="games"]', ".matches"]
-        for selector in games_selectors:
-            games_elem = soup.select_one(selector)
-            if games_elem:
-                text = games_elem.get_text()
-                # Extract number
-                numbers = re.findall(r"[\d,]+", text)
-                if numbers:
-                    try:
-                        result["games_played"] = int(numbers[0].replace(",", ""))
+        # Fallback selectors for older OP.GG layouts.
+        if result["win_rate"] is None:
+            for selector in [".champion-stats-trend-rate", ".win-rate", '[class*="win"]', ".stats-value"]:
+                win_elem = soup.select_one(selector)
+                if win_elem:
+                    result["win_rate"] = self._parse_win_rate(win_elem.get_text())
+                    if result["win_rate"] is not None:
                         break
-                    except ValueError:
-                        pass
+        if result["pick_rate"] is None:
+            for selector in [".pick-rate", '[class*="pick"]', ".ban-rate"]:
+                pick_elem = soup.select_one(selector)
+                if pick_elem:
+                    result["pick_rate"] = self._parse_win_rate(pick_elem.get_text())
+                    if result["pick_rate"] is not None:
+                        break
 
-        # Parse item builds
-        # Look for item slots - typically in order: starting items, core items, final items
-        item_slot_selectors = [
-            ".item-set[data-type='starting']",
-            ".item-set[data-type='core']",
-            ".item-set[data-type='final']",
-            ".build-section",
-            ".item-build",
-        ]
+        # Parse games played from strings like "95,557 Games".
+        for games_elem in soup.find_all(string=re.compile(r"[\d,]+\s+Games", re.IGNORECASE)):
+            numbers = re.findall(r"[\d,]+", str(games_elem))
+            if not numbers:
+                continue
+            try:
+                result["games_played"] = int(numbers[0].replace(",", ""))
+                break
+            except ValueError:
+                continue
+        if result["games_played"] is None:
+            for selector in [".games", '[class*="games"]', ".matches"]:
+                games_elem = soup.select_one(selector)
+                if not games_elem:
+                    continue
+                numbers = re.findall(r"[\d,]+", games_elem.get_text())
+                if not numbers:
+                    continue
+                try:
+                    result["games_played"] = int(numbers[0].replace(",", ""))
+                    break
+                except ValueError:
+                    continue
 
-        all_items = []
-        item_elements = soup.select(".item-image, .item-slot img, [class*='item'] img")
-        for item in item_elements[:12]:  # Limit to reasonable number
-            item_name = item.get("alt") or item.get("title") or ""
-            item_id = item.get("data-item-id", "")
-            if item_name and item_name not in all_items:
-                all_items.append({
-                    "id": str(item_id),
-                    "name": item_name.strip(),
-                })
+        table_by_header: Dict[str, Any] = {}
+        for table in soup.select("table"):
+            header = table.select_one("thead th")
+            if not header:
+                continue
+            header_text = header.get_text(" ", strip=True).lower()
+            if header_text:
+                table_by_header[header_text] = table
 
-        # Split items into categories based on position
-        if len(all_items) >= 3:
-            result["items"]["core"] = all_items[:3]
-            result["items"]["final"] = all_items[3:9] if len(all_items) > 3 else []
-            result["items"]["start"] = all_items[9:12] if len(all_items) > 9 else []
+        def extract_first_row_items(table: Any) -> List[Dict[str, str]]:
+            first_row = table.select_one("tbody tr")
+            if not first_row:
+                return []
+            items: List[Dict[str, str]] = []
+            seen: set[str] = set()
+            for img in first_row.select("td img[alt]"):
+                name = img.get("alt", "").strip()
+                if not name or name in seen:
+                    continue
+                seen.add(name)
+                item_id = ""
+                src = img.get("src", "")
+                match = re.search(r"/item/(\d+)\.png", src)
+                if match:
+                    item_id = match.group(1)
+                items.append({"id": item_id, "name": name})
+            return items
+
+        starter_table = table_by_header.get("starter items")
+        if starter_table:
+            result["items"]["start"] = extract_first_row_items(starter_table)
+
+        core_table = table_by_header.get("core builds")
+        if core_table:
+            result["items"]["core"] = extract_first_row_items(core_table)
+
+        final_items: List[Dict[str, str]] = []
+        for header in ("fourth item", "fifth item", "sixth item"):
+            table = table_by_header.get(header)
+            if not table:
+                continue
+            items = extract_first_row_items(table)
+            if items:
+                final_items.extend(items[:1])
+        if final_items:
+            dedup_final: List[Dict[str, str]] = []
+            seen_final: set[str] = set()
+            for item in final_items:
+                name = item.get("name", "")
+                if name in seen_final:
+                    continue
+                seen_final.add(name)
+                dedup_final.append(item)
+            result["items"]["final"] = dedup_final
+
+        # Fallback for legacy markup where table headers are unavailable.
+        if not result["items"]["core"]:
+            all_items: List[Dict[str, str]] = []
+            seen_names: set[str] = set()
+            for item in soup.select(".item-image, .item-slot img, [class*='item'] img")[:18]:
+                item_name = (item.get("alt") or item.get("title") or "").strip()
+                if not item_name or item_name in seen_names:
+                    continue
+                seen_names.add(item_name)
+                item_id = str(item.get("data-item-id", "")).strip()
+                all_items.append({"id": item_id, "name": item_name})
+            if len(all_items) >= 3:
+                result["items"]["core"] = all_items[:3]
+                if not result["items"]["final"]:
+                    result["items"]["final"] = all_items[3:9] if len(all_items) > 3 else []
+                if not result["items"]["start"]:
+                    result["items"]["start"] = all_items[9:12] if len(all_items) > 9 else []
 
         # Parse skill order (e.g., Q > W > E)
         skill_selectors = [".skill-order", ".skill-sequence", '[class*="skill"]']
@@ -388,6 +669,44 @@ class OPGGScraper:
         from bs4 import BeautifulSoup
 
         soup = BeautifulSoup(html, "lxml")
+
+        current_rows = []
+        for row in soup.select("ul li"):
+            image = row.select_one("img[alt]")
+            if not image:
+                continue
+            champ_name = image.get("alt", "").strip()
+            text = " ".join(row.get_text(" ", strip=True).split())
+            if not champ_name or "%" not in text:
+                continue
+            rate_match = re.search(r"(\d+(?:\.\d+)?)\s*%", text)
+            if not rate_match:
+                continue
+            games = 0
+            after_rate = text[rate_match.end():]
+            games_match = re.search(r"([\d,]+)", after_rate)
+            if games_match:
+                try:
+                    games = int(games_match.group(1).replace(",", ""))
+                except ValueError:
+                    games = 0
+            win_rate = float(rate_match.group(1))
+            current_rows.append({
+                "champion_name": champ_name,
+                "win_rate": win_rate,
+                "games": games,
+                "advantage": win_rate - 50.0,
+            })
+
+        if current_rows:
+            counters = [entry for entry in current_rows if entry["win_rate"] < 50]
+            countered_by = [entry for entry in current_rows if entry["win_rate"] >= 50]
+            counters.sort(key=lambda x: x["advantage"])
+            countered_by.sort(key=lambda x: x["advantage"], reverse=True)
+            return {
+                "counters": counters[:10],
+                "countered_by": countered_by[:10],
+            }
 
         # Look for counter table/list
         counter_selectors = [
@@ -455,6 +774,52 @@ class OPGGScraper:
             "countered_by": countered_by[:10],  # Top 10 most countered
         }
 
+    def _parse_synergies_page(self, html: str, filters: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Parse champion synergy page and return best lane partners."""
+        from bs4 import BeautifulSoup
+
+        soup = BeautifulSoup(html, "lxml")
+        synergies: List[Dict[str, Any]] = []
+
+        for row in soup.select("table tbody tr"):
+            if "sample size is not large enough" in row.get_text(" ", strip=True).lower():
+                continue
+            image = row.select_one("img[alt]")
+            if not image:
+                continue
+            champion_name = image.get("alt", "").strip()
+            if not champion_name:
+                continue
+
+            rates = []
+            for text in row.stripped_strings:
+                parsed = self._parse_win_rate(text)
+                if parsed is not None:
+                    rates.append(parsed)
+
+            pick_rate = rates[0] if len(rates) >= 1 else None
+            win_rate = rates[1] if len(rates) >= 2 else None
+            if pick_rate is None and win_rate is None:
+                continue
+
+            games = 0
+            games_match = re.search(r"([\d,]+)\s+Games", row.get_text(" ", strip=True), re.IGNORECASE)
+            if games_match:
+                try:
+                    games = int(games_match.group(1).replace(",", ""))
+                except ValueError:
+                    games = 0
+
+            synergies.append({
+                "champion_name": champion_name,
+                "pick_rate": pick_rate,
+                "win_rate": win_rate,
+                "games": games,
+            })
+
+        synergies.sort(key=lambda item: item.get("win_rate") or 0, reverse=True)
+        return synergies[:5]
+
     async def get_champion_build(
         self,
         champ_slug: str,
@@ -517,6 +882,21 @@ class OPGGScraper:
                 logger.warning("opgg_vs_page_parse_failed", champ_slug=champ_slug, error=str(e))
                 data["matchups"] = {"counters": [], "countered_by": []}
 
+            try:
+                data["synergies"] = await self._fetch_synergies_with_fallbacks(
+                    champ_slug=champ_slug,
+                    filters=filters,
+                    region=region,
+                    queue=queue,
+                    tier=tier,
+                    role=role,
+                )
+                if not data["synergies"]:
+                    data["synergies"] = await self._fetch_ugg_synergies_fallback(champ_slug)
+            except Exception as e:
+                logger.warning("opgg_synergies_page_parse_failed", champ_slug=champ_slug, error=str(e))
+                data["synergies"] = []
+
             # Cache the result
             if use_cache:
                 await self._set_cache(cache_key, data)
@@ -536,6 +916,18 @@ class OPGGScraper:
             raise
         except (OPGGNotFoundError, OPGGParseError, OPGGError):
             raise
+        except Exception as e:
+            logger.exception(
+                "opgg_unhandled_exception",
+                champ_slug=champ_slug,
+                filters=filters,
+                error=str(e),
+            )
+            raise OPGGError(
+                f"Unhandled OP.GG scrape error: {str(e)}",
+                champ_slug=champ_slug,
+                filters=filters,
+            )
 
     async def _get_from_cache(self, key: str, stale: bool = False) -> Optional[Dict[str, Any]]:
         """Get data from Redis cache."""
