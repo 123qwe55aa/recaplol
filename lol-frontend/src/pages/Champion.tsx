@@ -1,15 +1,17 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useChampionBuild } from '../hooks/useChampionBuild';
 import { ChampionPortrait } from '../components/ChampionPortrait';
 import type { RegionCode, QueueType } from '../types';
+import { loadItemData, type ItemDetail } from '../services/itemData';
 
-type TabType = 'overview' | 'builds' | 'counters';
+type TabType = 'overview' | 'builds' | 'counters' | 'synergies';
 
 const TABS: { id: TabType; label: string }[] = [
   { id: 'overview', label: '概览' },
   { id: 'builds', label: '出装' },
   { id: 'counters', label: '克制' },
+  { id: 'synergies', label: '组合' },
 ];
 
 const REGIONS: { code: RegionCode; name: string }[] = [
@@ -129,6 +131,47 @@ function StatsOverview({ data }: { data: NonNullable<import('../types').Champion
 }
 
 function BuildSection({ data }: { data: NonNullable<import('../types').ChampionBuildResponse['data']> }) {
+  const [itemData, setItemData] = useState<Record<string, ItemDetail>>({});
+  const itemVersion = useMemo(() => {
+    const match = DDRAGON_BASE.match(/\/cdn\/([^/]+)\/img\/item$/);
+    return match?.[1] ?? '16.5.1';
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadItemData(itemVersion)
+      .then((loaded) => {
+        if (!cancelled) setItemData(loaded);
+      })
+      .catch(() => {
+        if (!cancelled) setItemData({});
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [itemVersion]);
+
+  const getItemTooltip = (itemId: string, fallbackName: string): string => {
+    const item = itemData[itemId];
+    if (!item) return fallbackName || `装备 ID: ${itemId}`;
+
+    const lines = [item.name];
+    if (item.totalGold > 0 || item.sellGold > 0) {
+      lines.push(`总价: ${item.totalGold}  售价: ${item.sellGold}`);
+    }
+    if (item.tags.length > 0) {
+      lines.push(`类型: ${item.tags.join(', ')}`);
+    }
+    if (item.plaintext) {
+      lines.push(item.plaintext);
+    }
+    if (item.description) {
+      lines.push(item.description);
+    }
+    return lines.join('\n');
+  };
+
   return (
     <div className="space-y-6">
       {/* Core Item Build */}
@@ -144,6 +187,7 @@ function BuildSection({ data }: { data: NonNullable<import('../types').ChampionB
                     src={`${DDRAGON_BASE}/${item.id}.png`}
                     alt={item.name}
                     className="w-10 h-10 rounded"
+                    title={getItemTooltip(item.id, item.name)}
                     onError={(e) => {
                       (e.target as HTMLImageElement).style.display = 'none';
                     }}
@@ -168,6 +212,7 @@ function BuildSection({ data }: { data: NonNullable<import('../types').ChampionB
                       src={`${DDRAGON_BASE}/${item.id}.png`}
                       alt={item.name}
                       className="w-8 h-8 rounded"
+                      title={getItemTooltip(item.id, item.name)}
                       onError={(e) => {
                         (e.target as HTMLImageElement).style.display = 'none';
                       }}
@@ -191,6 +236,7 @@ function BuildSection({ data }: { data: NonNullable<import('../types').ChampionB
                       src={`${DDRAGON_BASE}/${item.id}.png`}
                       alt={item.name}
                       className="w-8 h-8 rounded"
+                      title={getItemTooltip(item.id, item.name)}
                       onError={(e) => {
                         (e.target as HTMLImageElement).style.display = 'none';
                       }}
@@ -327,6 +373,43 @@ function CountersSection({
   );
 }
 
+function SynergiesSection({ data }: { data: NonNullable<import('../types').ChampionBuildResponse['data']> }) {
+  const synergies = data.synergies ?? [];
+
+  return (
+    <div className="bg-gray-800 rounded-xl p-6">
+      <h3 className="text-xl font-bold text-white mb-4">最佳组合英雄 Top 5</h3>
+      {synergies.length > 0 ? (
+        <div className="space-y-2">
+          {synergies.slice(0, 5).map((synergy, idx) => (
+            <Link
+              key={synergy.champion_name || idx}
+              to={`/champion/${encodeURIComponent(synergy.champion_name)}`}
+              className="flex items-center justify-between bg-gray-700 rounded-lg px-4 py-3 hover:bg-gray-600 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <span className="text-gray-500 font-bold w-6">#{idx + 1}</span>
+                <ChampionPortrait championName={synergy.champion_name} size="sm" />
+                <span className="text-white font-medium">{synergy.champion_name}</span>
+              </div>
+              <div className="text-right">
+                <span className="text-green-400 font-bold">
+                  {formatWinRate(synergy.win_rate)}
+                </span>
+                <span className="text-gray-400 text-sm ml-2">
+                  选用率 {formatWinRate(synergy.pick_rate)}
+                </span>
+              </div>
+            </Link>
+          ))}
+        </div>
+      ) : (
+        <p className="text-gray-400">暂无数据</p>
+      )}
+    </div>
+  );
+}
+
 export function ChampionPage() {
   const { championName } = useParams<{ championName: string }>();
   const [activeTab, setActiveTab] = useState<TabType>('overview');
@@ -388,6 +471,8 @@ export function ChampionPage() {
           return <BuildSection data={data} />;
         case 'counters':
           return <CountersSection data={data} countersCount={countersCount} />;
+        case 'synergies':
+          return <SynergiesSection data={data} />;
         default:
           return null;
       }

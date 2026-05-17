@@ -1,5 +1,7 @@
+import { useEffect, useMemo, useState } from 'react';
 import type { Match } from '../types';
 import { ChampionPortrait } from './ChampionPortrait';
+import { loadItemData, parseVersionFromItemImageUrl, type ItemDetail } from '../services/itemData';
 
 interface MatchCardProps {
   match: Match;
@@ -56,6 +58,29 @@ export function MatchCard({
     player = match.participants[0];
   }
   if (!player) return null;
+  const [itemData, setItemData] = useState<Record<string, ItemDetail>>({});
+
+  const displayedItemIds = useMemo(() => player.items.filter((id) => id > 0).slice(0, 6), [player.items]);
+  const itemDataVersion = useMemo(() => {
+    if (!player.itemImages || player.itemImages.length === 0) return '';
+    return parseVersionFromItemImageUrl(player.itemImages[0]);
+  }, [player.itemImages]);
+
+  useEffect(() => {
+    if (!itemDataVersion) return;
+    let cancelled = false;
+    loadItemData(itemDataVersion)
+      .then((data) => {
+        if (!cancelled) setItemData(data);
+      })
+      .catch(() => {
+        if (!cancelled) setItemData({});
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [itemDataVersion]);
 
   const kda = `${player.kills}/${player.deaths}/${player.assists}`;
   const kdaColor = player.deaths === 0 ? 'text-purple-400' :
@@ -65,6 +90,25 @@ export function MatchCard({
   const outcomeText = outcome === 'WIN' ? '胜利' : outcome === 'LOSS' ? '失败' : outcome === 'REMAKE' ? '重开' : '未知';
   const outcomeColor = outcome === 'WIN' ? 'text-blue-400' : outcome === 'LOSS' ? 'text-red-400' : 'text-gray-300';
   const borderColor = outcome === 'WIN' ? 'border-blue-500' : outcome === 'LOSS' ? 'border-red-500' : 'border-gray-500';
+  const getItemTooltip = (itemId: number): string => {
+    const item = itemData[String(itemId)];
+    if (!item) return `装备 ID: ${itemId}`;
+
+    const lines = [item.name];
+    if (item.totalGold > 0 || item.sellGold > 0) {
+      lines.push(`总价: ${item.totalGold}  售价: ${item.sellGold}`);
+    }
+    if (item.tags.length > 0) {
+      lines.push(`类型: ${item.tags.join(', ')}`);
+    }
+    if (item.plaintext) {
+      lines.push(item.plaintext);
+    }
+    if (item.description) {
+      lines.push(item.description);
+    }
+    return lines.join('\n');
+  };
 
   return (
     <div
@@ -97,6 +141,7 @@ export function MatchCard({
                   src={url}
                   alt="item"
                   className="w-5 h-5 rounded-sm object-cover bg-gray-700"
+                  title={getItemTooltip(displayedItemIds[i] ?? 0)}
                   onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                 />
               ))}

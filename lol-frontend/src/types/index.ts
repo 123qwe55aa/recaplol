@@ -69,6 +69,13 @@ export interface OpggCounter {
   advantage?: number | null;  // Positive = good for this champ
 }
 
+export interface OpggSynergy {
+  champion_name: string;
+  win_rate: number | null;
+  pick_rate: number | null;
+  games: number;
+}
+
 export interface OpggMatchups {
   counters: OpggCounter[];    // Champions that beat this champ (克制该英雄)
   countered_by: OpggCounter[]; // Champions this champ beats (该英雄克制)
@@ -88,6 +95,7 @@ export interface OpggBuild {
   skills: string[];
   runes: { name: string }[];
   matchups: OpggMatchups;
+  synergies: OpggSynergy[];
   last_updated: string;
   source: string;
   cached: boolean;
@@ -124,7 +132,35 @@ export interface CoachDashboard {
     vision_score?: number;
     gold_earned?: number;
   };
+  lane_opponent_comparison?: CoachLaneOpponentComparison;
   primary_champions?: Array<Record<string, unknown>>;
+}
+
+export interface CoachLaneOpponentComparison {
+  sample_size?: number;
+  player?: CoachComparisonStats;
+  opponent?: CoachComparisonStats;
+  delta?: CoachComparisonStats;
+}
+
+export interface CoachComparisonStats {
+  kills?: number;
+  deaths?: number;
+  assists?: number;
+  cs?: number;
+  cs_per_minute?: number;
+  vision_score?: number;
+  gold_earned?: number;
+}
+
+export interface CoachLaneOpponent {
+  champion_name?: string | null;
+  kills?: number | null;
+  deaths?: number | null;
+  assists?: number | null;
+  cs?: number | null;
+  vision_score?: number | null;
+  gold_earned?: number | null;
 }
 
 export interface CoachRecentMatch {
@@ -138,6 +174,7 @@ export interface CoachRecentMatch {
   cs?: number | null;
   vision_score?: number | null;
   game_duration?: number | null;
+  lane_opponent?: CoachLaneOpponent | null;
 }
 
 export interface CoachPriority {
