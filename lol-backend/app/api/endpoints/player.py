@@ -20,6 +20,10 @@ def _should_ignore_ranked_decrypt_error(exc: RiotAPIError) -> bool:
     return exc.status_code == 400 and "Exception decrypting" in exc.message
 
 
+def _is_decrypt_error(exc: RiotAPIError) -> bool:
+    return exc.status_code == 400 and "Exception decrypting" in exc.message
+
+
 def _build_player_response(player) -> PlayerResponse:
     ranked_stats = None
     if player.ranked_solo_tier:
@@ -233,7 +237,14 @@ async def refresh_player_by_puuid(
 
     riot_client: RiotAPIClient = get_riot_client()
     async with riot_client:
-        summoner_data = await riot_client.get_summoner_by_puuid(puuid, tag_line=player.tag_line)
+        try:
+            summoner_data = await riot_client.get_summoner_by_puuid(puuid, tag_line=player.tag_line)
+        except RiotAPIError as exc:
+            # Some Riot shards intermittently reject legacy/stale puuids with a decrypt error.
+            # Keep the workflow unblocked by returning stored profile data instead of 502.
+            if _is_decrypt_error(exc):
+                return _build_player_response(player)
+            raise
         if not summoner_data:
             raise HTTPException(
                 status_code=404,

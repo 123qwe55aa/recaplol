@@ -401,6 +401,36 @@ class TestPlayerEndpoints:
 
             app.dependency_overrides.clear()
 
+    def test_refresh_player_by_puuid_ignores_summoner_decrypt_error(self, mock_db, mock_player):
+        """Test refresh returns existing player when by-puuid endpoint decrypt fails."""
+        with patch("app.api.endpoints.player.PlayerRepository") as MockRepo:
+            mock_repo = MockRepo.return_value
+            mock_repo.get_by_puuid = AsyncMock(return_value=mock_player)
+
+            mock_riot_client = AsyncMock()
+            mock_riot_client.__aenter__.return_value = mock_riot_client
+            mock_riot_client.__aexit__.return_value = None
+            mock_riot_client.get_summoner_by_puuid = AsyncMock(
+                side_effect=RiotAPIError(
+                    400,
+                    "Bad Request - Exception decrypting test-puuid",
+                )
+            )
+
+            app = create_test_app()
+            from app.db.database import get_db
+            app.dependency_overrides[get_db] = lambda: mock_db
+
+            with patch("app.api.endpoints.player.get_riot_client", return_value=mock_riot_client):
+                with TestClient(app) as client:
+                    response = client.post("/players/test-puuid/refresh")
+                    assert response.status_code == 200
+                    data = response.json()
+                    assert data["puuid"] == "test-puuid"
+                    assert data["summoner_name"] == "TestPlayer"
+
+            app.dependency_overrides.clear()
+
 
 class TestStatsEndpoints:
     """Test Stats API endpoints."""
