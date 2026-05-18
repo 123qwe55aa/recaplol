@@ -9,6 +9,7 @@ from fastapi import FastAPI
 from app.api.endpoints import player, stats, analysis, opgg
 from app.models.player import Player, ChampionMastery
 from app.models.match import Match, MatchParticipant
+from app.services.riot_api_client import RiotAPIError
 
 
 # Create test app
@@ -341,6 +342,62 @@ class TestPlayerEndpoints:
                     assert data["puuid"] == "test-puuid"
                     assert data["summoner_name"] == "RefreshedName"
                     assert data["ranked_stats"]["tier"] == "PLATINUM"
+
+            app.dependency_overrides.clear()
+
+    def test_refresh_player_by_puuid_ignores_ranked_decrypt_error(self, mock_db, mock_player):
+        """Test refresh succeeds when Riot ranked endpoint returns decrypting 400."""
+        refreshed_player = Player(
+            puuid="test-puuid",
+            summoner_id="summoner-456",
+            summoner_name="RefreshedName",
+            tag_line="NA1",
+            profile_icon_id=2,
+            summoner_level=60,
+            revision_date=1800000000000,
+            ranked_solo_tier=None,
+            ranked_solo_rank=None,
+            ranked_solo_league_points=0,
+            ranked_solo_wins=0,
+            ranked_solo_losses=0,
+        )
+
+        with patch("app.api.endpoints.player.PlayerRepository") as MockRepo:
+            mock_repo = MockRepo.return_value
+            mock_repo.get_by_puuid = AsyncMock(return_value=mock_player)
+            mock_repo.upsert_player = AsyncMock(return_value=refreshed_player)
+
+            mock_riot_client = AsyncMock()
+            mock_riot_client.__aenter__.return_value = mock_riot_client
+            mock_riot_client.__aexit__.return_value = None
+            mock_riot_client.get_summoner_by_puuid = AsyncMock(
+                return_value={
+                    "id": "summoner-456",
+                    "name": "RefreshedName",
+                    "profileIconId": 2,
+                    "summonerLevel": 60,
+                    "revisionDate": 1800000000000,
+                }
+            )
+            mock_riot_client.get_player_ranked_stats = AsyncMock(
+                side_effect=RiotAPIError(
+                    400,
+                    "Bad Request - Exception decrypting encrypted-id",
+                )
+            )
+
+            app = create_test_app()
+            from app.db.database import get_db
+            app.dependency_overrides[get_db] = lambda: mock_db
+
+            with patch("app.api.endpoints.player.get_riot_client", return_value=mock_riot_client):
+                with TestClient(app) as client:
+                    response = client.post("/players/test-puuid/refresh")
+                    assert response.status_code == 200
+                    data = response.json()
+                    assert data["puuid"] == "test-puuid"
+                    assert data["summoner_name"] == "RefreshedName"
+                    assert data["ranked_stats"] is None
 
             app.dependency_overrides.clear()
 

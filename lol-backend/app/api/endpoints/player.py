@@ -11,9 +11,13 @@ from app.schemas.player import (
     ChampionMasteryResponse,
     PlayerChampionMasteryResponse,
 )
-from app.services.riot_api_client import RiotAPIClient, get_riot_client
+from app.services.riot_api_client import RiotAPIClient, RiotAPIError, get_riot_client
 
 router = APIRouter(prefix="/players", tags=["players"])
+
+
+def _should_ignore_ranked_decrypt_error(exc: RiotAPIError) -> bool:
+    return exc.status_code == 400 and "Exception decrypting" in exc.message
 
 
 def _build_player_response(player) -> PlayerResponse:
@@ -177,7 +181,13 @@ async def get_player_by_summoner(
                 )
 
             # Get ranked stats
-            ranked_data = await riot_client.get_player_ranked_stats(summoner_data["id"], tag_line=tag_line) if "id" in summoner_data else None
+            ranked_data = None
+            if "id" in summoner_data:
+                try:
+                    ranked_data = await riot_client.get_player_ranked_stats(summoner_data["id"], tag_line=tag_line)
+                except RiotAPIError as exc:
+                    if not _should_ignore_ranked_decrypt_error(exc):
+                        raise
             solo_rank = None
             if ranked_data:
                 for entry in ranked_data:
@@ -230,10 +240,16 @@ async def refresh_player_by_puuid(
                 detail=f"Summoner data not found for PUUID {puuid}"
             )
 
-        ranked_data = await riot_client.get_player_ranked_stats(
-            summoner_data["id"],
-            tag_line=player.tag_line,
-        ) if "id" in summoner_data else None
+        ranked_data = None
+        if "id" in summoner_data:
+            try:
+                ranked_data = await riot_client.get_player_ranked_stats(
+                    summoner_data["id"],
+                    tag_line=player.tag_line,
+                )
+            except RiotAPIError as exc:
+                if not _should_ignore_ranked_decrypt_error(exc):
+                    raise
 
         solo_rank = None
         if ranked_data:
