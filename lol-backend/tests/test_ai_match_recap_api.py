@@ -68,6 +68,12 @@ class FakeTimelineRepository:
                                         "killerId": 4,
                                     },
                                     {
+                                        "type": "ITEM_PURCHASED",
+                                        "timestamp": 300000,
+                                        "participantId": 1,
+                                        "itemId": 1056,
+                                    },
+                                    {
                                         "type": "ELITE_MONSTER_KILL",
                                         "timestamp": 600000,
                                         "monsterType": "DRAGON",
@@ -187,6 +193,7 @@ async def test_generate_ai_match_recap(monkeypatch):
         "keystone": 8112,
         "selected_perks": [8112, 8139, 8210],
     }
+    assert provider.seen_timeline_recap["key_events"]["items"][0]["item_id"] == 1056
     assert provider.seen_timeline_recap["role_profile"]["role"] == "MIDDLE"
 
 

@@ -27,7 +27,13 @@ def test_build_match_recap_flags_early_deaths_and_resource_death():
                             "victimId": 1,
                             "killerId": 4,
                             "assistingParticipantIds": [5],
-                        }
+                        },
+                        {
+                            "type": "ITEM_PURCHASED",
+                            "timestamp": 300000,
+                            "participantId": 1,
+                            "itemId": 1056,
+                        },
                     ],
                 },
                 {
@@ -67,6 +73,14 @@ def test_build_match_recap_flags_early_deaths_and_resource_death():
     assert recap["timeline_stats"]["resource_deaths"] == 1
     assert recap["resource_windows"][0]["resource"] == "DRAGON"
     assert recap["resource_windows"][0]["player_died_before"] is True
+    assert recap["key_events"]["items"][0] == {
+        "type": "ITEM_PURCHASED",
+        "timestamp": 300000,
+        "minute": 5.0,
+        "item_id": 1056,
+        "before_id": None,
+        "after_id": None,
+    }
     assert any(insight["type"] == "early_death" for insight in recap["insights"])
     assert any(insight["type"] == "resource_death" for insight in recap["insights"])
 

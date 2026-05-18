@@ -6,6 +6,7 @@ from typing import Any
 
 
 RESOURCE_TYPES = {"DRAGON", "RIFTHERALD", "BARON_NASHOR", "HORDE"}
+ITEM_EVENT_TYPES = {"ITEM_PURCHASED", "ITEM_SOLD", "ITEM_DESTROYED", "ITEM_UNDO"}
 RESOURCE_WINDOW_MS = 90_000
 EARLY_GAME_MS = 10 * 60 * 1000
 LANE_PHASE_MS = 14 * 60 * 1000
@@ -79,6 +80,11 @@ def build_match_recap(
         if event.get("type") == "CHAMPION_KILL"
         and participant_id in (event.get("assistingParticipantIds") or [])
     ]
+    item_events = [
+        event for event in events
+        if event.get("type") in ITEM_EVENT_TYPES
+        and event.get("participantId") == participant_id
+    ]
     resource_events = [
         event for event in events
         if event.get("type") == "ELITE_MONSTER_KILL"
@@ -137,6 +143,7 @@ def build_match_recap(
             "kills": [_event_summary(event) for event in kill_events],
             "assists": [_event_summary(event) for event in assist_events],
             "objectives": [_objective_summary(event, participant_team_id) for event in resource_events],
+            "items": [_item_event_summary(event) for event in item_events],
         },
         "insights": insights,
     }
@@ -307,6 +314,18 @@ def _objective_summary(
             if killer_team_id is not None and participant_team_id is not None
             else None
         ),
+    }
+
+
+def _item_event_summary(event: dict[str, Any]) -> dict[str, Any]:
+    timestamp = _timestamp(event)
+    return {
+        "type": event.get("type"),
+        "timestamp": timestamp,
+        "minute": round(timestamp / 60_000, 1),
+        "item_id": event.get("itemId"),
+        "before_id": event.get("beforeId"),
+        "after_id": event.get("afterId"),
     }
 
 

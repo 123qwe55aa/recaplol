@@ -68,7 +68,7 @@ Return exactly one JSON object with this shape:
 }
 Use only supplied match_context and timeline_recap. Make this recap specific to this single game.
 Use match_context.role_profile as the evaluation contract. Do not make CS a primary criticism for UTILITY or JUNGLE. For UTILITY, prioritize vision control, assist participation, objective setup, deaths, and positioning. For lane carries, CS can be a primary point only when role_profile.cs_is_primary is true.
-When match_context.participant includes items or runes, evaluate whether this game's itemization and rune choices fit the champion, role, opponent, and observed game state. Mention item or rune evidence when it changes the recap; if the supplied item/rune IDs are insufficient to judge, say evidence is insufficient instead of inventing names.
+When match_context.participant includes items or runes, evaluate whether this game's itemization and rune choices fit the champion, role, opponent, and observed game state. If timeline_recap.key_events.items is present, use those timestamps to explain item timing or build pivots. Mention item or rune evidence when it changes the recap; if the supplied item/rune IDs are insufficient to judge, say evidence is insufficient instead of inventing names.
 Do not include markdown or extra keys. Do not invent hidden information or skill-shot details.
 """.strip()
 
