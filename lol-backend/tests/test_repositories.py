@@ -69,6 +69,10 @@ class TestPlayerRepository:
 
         assert result is not None
         assert result.summoner_name == "TestPlayer"
+        statement = mock_session.execute.call_args.args[0]
+        sql = str(statement.compile(compile_kwargs={"literal_binds": True}))
+        assert "ORDER BY players.updated_at DESC" in sql
+        assert "LIMIT 1" in sql
 
     @pytest.mark.asyncio
     async def test_upsert_player_existing(self, repository, mock_session):

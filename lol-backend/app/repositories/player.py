@@ -1,6 +1,6 @@
 from typing import Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, desc
 from datetime import datetime
 
 from app.models.player import Player, ChampionMastery
@@ -24,7 +24,10 @@ class PlayerRepository(BaseRepository[Player]):
                     Player.summoner_name == name,
                     Player.tag_line == tag_line
                 )
-            )
+            ).order_by(
+                desc(Player.updated_at),
+                desc(Player.created_at),
+            ).limit(1)
         )
         return result.scalar_one_or_none()
 
