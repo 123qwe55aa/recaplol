@@ -265,6 +265,85 @@ class TestPlayerEndpoints:
 
             app.dependency_overrides.clear()
 
+    def test_refresh_player_by_puuid_not_found(self, mock_db):
+        """Test refresh endpoint returns 404 when player does not exist."""
+        with patch("app.api.endpoints.player.PlayerRepository") as MockRepo:
+            mock_repo = MockRepo.return_value
+            mock_repo.get_by_puuid = AsyncMock(return_value=None)
+
+            app = create_test_app()
+
+            from app.db.database import get_db
+            app.dependency_overrides[get_db] = lambda: mock_db
+
+            with TestClient(app) as client:
+                response = client.post("/players/test-puuid/refresh")
+                assert response.status_code == 404
+
+            app.dependency_overrides.clear()
+
+    def test_refresh_player_by_puuid_success(self, mock_db, mock_player):
+        """Test refresh endpoint updates player using PUUID path."""
+        refreshed_player = Player(
+            puuid="test-puuid",
+            summoner_id="summoner-456",
+            summoner_name="RefreshedName",
+            tag_line="NA1",
+            profile_icon_id=2,
+            summoner_level=60,
+            revision_date=1800000000000,
+            ranked_solo_tier="PLATINUM",
+            ranked_solo_rank="II",
+            ranked_solo_league_points=33,
+            ranked_solo_wins=120,
+            ranked_solo_losses=100,
+        )
+
+        with patch("app.api.endpoints.player.PlayerRepository") as MockRepo:
+            mock_repo = MockRepo.return_value
+            mock_repo.get_by_puuid = AsyncMock(return_value=mock_player)
+            mock_repo.upsert_player = AsyncMock(return_value=refreshed_player)
+
+            mock_riot_client = AsyncMock()
+            mock_riot_client.__aenter__.return_value = mock_riot_client
+            mock_riot_client.__aexit__.return_value = None
+            mock_riot_client.get_summoner_by_puuid = AsyncMock(
+                return_value={
+                    "id": "summoner-456",
+                    "name": "RefreshedName",
+                    "profileIconId": 2,
+                    "summonerLevel": 60,
+                    "revisionDate": 1800000000000,
+                }
+            )
+            mock_riot_client.get_player_ranked_stats = AsyncMock(
+                return_value=[
+                    {
+                        "queueType": "RANKED_SOLO_5x5",
+                        "tier": "PLATINUM",
+                        "rank": "II",
+                        "leaguePoints": 33,
+                        "wins": 120,
+                        "losses": 100,
+                    }
+                ]
+            )
+
+            app = create_test_app()
+            from app.db.database import get_db
+            app.dependency_overrides[get_db] = lambda: mock_db
+
+            with patch("app.api.endpoints.player.get_riot_client", return_value=mock_riot_client):
+                with TestClient(app) as client:
+                    response = client.post("/players/test-puuid/refresh")
+                    assert response.status_code == 200
+                    data = response.json()
+                    assert data["puuid"] == "test-puuid"
+                    assert data["summoner_name"] == "RefreshedName"
+                    assert data["ranked_stats"]["tier"] == "PLATINUM"
+
+            app.dependency_overrides.clear()
+
 
 class TestStatsEndpoints:
     """Test Stats API endpoints."""

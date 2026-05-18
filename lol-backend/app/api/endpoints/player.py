@@ -16,22 +16,7 @@ from app.services.riot_api_client import RiotAPIClient, get_riot_client
 router = APIRouter(prefix="/players", tags=["players"])
 
 
-@router.get("/{puuid}", response_model=PlayerResponse)
-async def get_player(
-    puuid: str,
-    db: AsyncSession = Depends(get_db),
-):
-    """
-    Get player basic information by PUUID.
-
-    - **puuid**: Player's PUUID (encrypted account ID)
-    """
-    repo = PlayerRepository(db)
-    player = await repo.get_by_puuid(puuid)
-
-    if not player:
-        raise HTTPException(status_code=404, detail=f"Player {puuid} not found")
-
+def _build_player_response(player) -> PlayerResponse:
     ranked_stats = None
     if player.ranked_solo_tier:
         ranked_stats = RankInfo(
@@ -55,6 +40,25 @@ async def get_player(
         created_at=player.created_at,
         updated_at=player.updated_at,
     )
+
+
+@router.get("/{puuid}", response_model=PlayerResponse)
+async def get_player(
+    puuid: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get player basic information by PUUID.
+
+    - **puuid**: Player's PUUID (encrypted account ID)
+    """
+    repo = PlayerRepository(db)
+    player = await repo.get_by_puuid(puuid)
+
+    if not player:
+        raise HTTPException(status_code=404, detail=f"Player {puuid} not found")
+
+    return _build_player_response(player)
 
 
 @router.get("/{puuid}/ranked", response_model=RankInfo)
@@ -198,26 +202,60 @@ async def get_player_by_summoner(
             )
             await db.commit()
 
-    ranked_stats = None
-    if player.ranked_solo_tier:
-        ranked_stats = RankInfo(
-            tier=player.ranked_solo_tier,
-            rank=player.ranked_solo_rank or "I",
-            league_points=player.ranked_solo_league_points,
-            wins=player.ranked_solo_wins,
-            losses=player.ranked_solo_losses,
-            queue_type="RANKED_SOLO_5x5",
-        )
+    return _build_player_response(player)
 
-    return PlayerResponse(
-        puuid=player.puuid,
-        summoner_name=player.summoner_name,
-        tag_line=player.tag_line,
-        summoner_id=player.summoner_id,
-        profile_icon_id=player.profile_icon_id,
-        summoner_level=player.summoner_level,
-        revision_date=player.revision_date,
-        ranked_stats=ranked_stats,
-        created_at=player.created_at,
-        updated_at=player.updated_at,
-    )
+
+@router.post("/{puuid}/refresh", response_model=PlayerResponse)
+async def refresh_player_by_puuid(
+    puuid: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Force refresh player profile/ranked data by PUUID.
+
+    This bypasses Riot ID lookup and uses the stored player record's
+    tag line for platform routing.
+    """
+    repo = PlayerRepository(db)
+    player = await repo.get_by_puuid(puuid)
+    if not player:
+        raise HTTPException(status_code=404, detail=f"Player {puuid} not found")
+
+    riot_client: RiotAPIClient = get_riot_client()
+    async with riot_client:
+        summoner_data = await riot_client.get_summoner_by_puuid(puuid, tag_line=player.tag_line)
+        if not summoner_data:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Summoner data not found for PUUID {puuid}"
+            )
+
+        ranked_data = await riot_client.get_player_ranked_stats(
+            summoner_data["id"],
+            tag_line=player.tag_line,
+        ) if "id" in summoner_data else None
+
+        solo_rank = None
+        if ranked_data:
+            for entry in ranked_data:
+                if entry.get("queueType") == "RANKED_SOLO_5x5":
+                    solo_rank = entry
+                    break
+
+        player = await repo.upsert_player(
+            puuid=puuid,
+            summoner_name=summoner_data.get("name", player.summoner_name),
+            tag_line=player.tag_line,
+            summoner_id=summoner_data.get("id", player.summoner_id or ""),
+            profile_icon_id=summoner_data.get("profileIconId", player.profile_icon_id or 0),
+            summoner_level=summoner_data.get("summonerLevel", player.summoner_level),
+            revision_date=summoner_data.get("revisionDate", player.revision_date),
+            ranked_solo_tier=solo_rank.get("tier") if solo_rank else None,
+            ranked_solo_rank=solo_rank.get("rank") if solo_rank else None,
+            ranked_solo_league_points=solo_rank.get("leaguePoints") if solo_rank else 0,
+            ranked_solo_wins=solo_rank.get("wins", 0) if solo_rank else 0,
+            ranked_solo_losses=solo_rank.get("losses", 0) if solo_rank else 0,
+        )
+        await db.commit()
+
+    return _build_player_response(player)

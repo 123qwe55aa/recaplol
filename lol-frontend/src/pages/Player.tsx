@@ -1,5 +1,7 @@
 import { useParams, Link } from 'react-router-dom';
+import { useState } from 'react';
 import { usePlayer, useChampionMastery } from '../hooks/usePlayer';
+import { refreshPlayerByPuuid } from '../services/api';
 import { PlayerCard } from '../components/PlayerCard';
 import { ChampionPortrait } from '../components/ChampionPortrait';
 import type { ChampionMastery } from '../types';
@@ -14,8 +16,26 @@ function getRegionalRouting(tagLine = '') {
 
 export function PlayerPage() {
   const { gameName, tagLine } = useParams<{ gameName: string; tagLine: string }>();
-  const { data: player, isLoading, error } = usePlayer(gameName!, tagLine!, !!gameName && !!tagLine);
+  const { data: player, isLoading, error, refetch } = usePlayer(gameName!, tagLine!, !!gameName && !!tagLine);
   const { data: masteryData } = useChampionMastery(player?.puuid ?? '', !!player?.puuid);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshMessage, setRefreshMessage] = useState<string | null>(null);
+
+  const handleRefresh = async () => {
+    if (!player?.puuid || isRefreshing) return;
+    setIsRefreshing(true);
+    setRefreshMessage(null);
+    try {
+      await refreshPlayerByPuuid(player.puuid);
+      await refetch();
+      setRefreshMessage('刷新成功');
+    } catch (refreshError) {
+      const message = refreshError instanceof Error ? refreshError.message : '刷新失败，请稍后重试';
+      setRefreshMessage(message);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -47,6 +67,19 @@ export function PlayerPage() {
         </Link>
 
         <PlayerCard player={player} />
+        <div className="mt-4 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="px-4 py-2 bg-gray-700 text-white font-semibold rounded-lg hover:bg-gray-600 disabled:opacity-50 transition-colors"
+          >
+            {isRefreshing ? '刷新中...' : '强制刷新资料'}
+          </button>
+          {refreshMessage && (
+            <span className="text-sm text-gray-300">{refreshMessage}</span>
+          )}
+        </div>
 
         {masteries.length > 0 && (
           <div className="mt-8">

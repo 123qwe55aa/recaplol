@@ -73,6 +73,13 @@ class TestRiotAPIClient:
                 client._handle_response(resp)
             assert exc_info.value.status_code == 403
 
+        def test_handle_401_response(self, client, mock_response):
+            """Test 401 raises RiotAPIError for invalid/expired key."""
+            resp = mock_response(401, None)
+            with pytest.raises(RiotAPIError) as exc_info:
+                client._handle_response(resp)
+            assert exc_info.value.status_code == 401
+
         def test_handle_other_error(self, client, mock_response):
             """Test other status codes raise RiotAPIError."""
             resp = mock_response(500, None)

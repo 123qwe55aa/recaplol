@@ -88,8 +88,8 @@ class RiotAPIClient:
             raise RateLimitError(
                 f"Rate limited, retry after {retry_after}s"
             )
-        elif response.status_code == 403:
-            raise RiotAPIError(403, "Invalid API key or forbidden")
+        elif response.status_code in (401, 403):
+            raise RiotAPIError(response.status_code, "Invalid API key or forbidden")
         else:
             raise RiotAPIError(
                 response.status_code,

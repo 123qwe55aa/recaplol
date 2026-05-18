@@ -220,6 +220,11 @@ export const getPlayerByPuuid = async (puuid: string): Promise<Player> => {
   return transformPlayer(data);
 };
 
+export const refreshPlayerByPuuid = async (puuid: string): Promise<Player> => {
+  const { data } = await api.post<ApiPlayerResponse>(`/players/${encodeURIComponent(puuid)}/refresh`);
+  return transformPlayer(data);
+};
+
 export const getPlayerRanked = async (puuid: string) => {
   const { data } = await api.get(`/players/${puuid}/ranked`);
   return data;
