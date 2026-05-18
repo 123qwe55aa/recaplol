@@ -6,6 +6,7 @@ from typing import Optional, List
 from app.db.database import get_db
 from app.repositories.match import MatchRepository, MatchParticipantRepository
 from app.repositories.match import MatchTimelineRepository
+from app.repositories.player import PlayerRepository
 from app.schemas.match import (
     MatchResponse,
     MatchListResponse,
@@ -18,7 +19,7 @@ from app.schemas.match import (
     MatchTeamInfo,
     TeamBans,
 )
-from app.services.riot_api_client import RiotAPIClient, get_riot_client
+from app.services.riot_api_client import RiotAPIClient, RiotAPIError, get_riot_client
 from app.services.match_timeline_analyzer import build_match_recap
 from app.models.match import Match
 
@@ -103,6 +104,13 @@ def _is_remake_payload(info: dict, participants_info: List[dict]) -> bool:
         return True
     game_duration = info.get("gameDuration") or 0
     return bool(game_duration > 0 and game_duration <= 300)
+
+
+SEA_TAG_LINES = {"tw1", "tw2", "sg2", "th2", "ph2", "vn2", "my2", "id2"}
+
+
+def _is_decrypt_error(exc: RiotAPIError) -> bool:
+    return exc.status_code == 400 and "Exception decrypting" in exc.message
 
 
 @router.get("/{puuid}", response_model=MatchListResponse)
@@ -340,14 +348,67 @@ async def fetch_player_matches(
 
     match_repo = MatchRepository(db)
     participant_repo = MatchParticipantRepository(db)
+    player_repo = PlayerRepository(db)
     fetched = 0
     errors = []
+    effective_puuid = puuid
+    effective_region = region
 
     async with riot_client:
-        # Get match IDs from Riot API using specified region
-        match_ids: List[str] = await riot_client.get_match_ids_by_puuid(
-            puuid, start=0, count=limit, region=region
-        )
+        player = await player_repo.get_by_puuid(puuid)
+        if player and (player.tag_line or "").lower() in SEA_TAG_LINES:
+            effective_region = "sea"
+
+        # Get match IDs from Riot API, with SEA + PUUID self-healing fallback.
+        try:
+            match_ids: List[str] = await riot_client.get_match_ids_by_puuid(
+                effective_puuid, start=0, count=limit, region=effective_region
+            )
+        except RiotAPIError as exc:
+            if not _is_decrypt_error(exc):
+                raise
+
+            # Retry on SEA first if initial region wasn't SEA.
+            if effective_region != "sea":
+                try:
+                    effective_region = "sea"
+                    match_ids = await riot_client.get_match_ids_by_puuid(
+                        effective_puuid, start=0, count=limit, region=effective_region
+                    )
+                except RiotAPIError as sea_exc:
+                    if not _is_decrypt_error(sea_exc):
+                        raise
+                    match_ids = []
+            else:
+                match_ids = []
+
+            # If still failing, re-resolve latest PUUID from Riot ID and retry on SEA.
+            if not match_ids and player:
+                account_data = await riot_client.get_puuid_by_riot_id(
+                    player.summoner_name,
+                    player.tag_line,
+                )
+                if account_data and account_data.get("puuid"):
+                    effective_puuid = account_data["puuid"]
+                    effective_region = "sea" if (player.tag_line or "").lower() in SEA_TAG_LINES else effective_region
+                    if effective_puuid != puuid:
+                        await player_repo.upsert_player(
+                            puuid=effective_puuid,
+                            summoner_name=player.summoner_name,
+                            tag_line=player.tag_line,
+                            summoner_id=player.summoner_id or "",
+                            profile_icon_id=player.profile_icon_id or 0,
+                            summoner_level=player.summoner_level or 1,
+                            revision_date=player.revision_date,
+                            ranked_solo_tier=player.ranked_solo_tier,
+                            ranked_solo_rank=player.ranked_solo_rank,
+                            ranked_solo_league_points=player.ranked_solo_league_points or 0,
+                            ranked_solo_wins=player.ranked_solo_wins or 0,
+                            ranked_solo_losses=player.ranked_solo_losses or 0,
+                        )
+                    match_ids = await riot_client.get_match_ids_by_puuid(
+                        effective_puuid, start=0, count=limit, region=effective_region
+                    )
 
         if not match_ids:
             return {"fetched": 0, "message": "No matches found on Riot API"}
@@ -509,6 +570,8 @@ async def fetch_player_matches(
 
     return {
         "fetched": fetched,
+        "puuid": effective_puuid,
+        "region": effective_region,
         "match_count": len(match_ids),
         "errors": errors if errors else None,
     }
