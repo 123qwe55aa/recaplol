@@ -1,10 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { fetchMatchTimeline, fetchPlayerMatches, generateAiMatchRecap, getPlayerMatchesWithDetails, getSavedAiMatchRecap } from '../services/api';
+import {
+  fetchMatchTimeline,
+  fetchPlayerMatches,
+  generateAiMatchRecap,
+  getPlayerMatchesWithDetails,
+  getSavedAiMatchRecap,
+  sendCoachQuestion,
+} from '../services/api';
 import { MatchCard } from '../components/MatchCard';
 import { usePlayerStore } from '../stores/playerStore';
-import type { CoachMatchRecapResponse } from '../types';
+import type { CoachChatResponse, CoachMatchRecapResponse } from '../types';
 
 function statText(value: number | null | undefined, suffix = '') {
   if (value === null || value === undefined) return '-';
@@ -16,6 +23,8 @@ export function MatchHistory() {
   const [searchParams] = useSearchParams();
   const { currentPlayer } = usePlayerStore();
   const [recaps, setRecaps] = useState<Record<string, CoachMatchRecapResponse>>({});
+  const [chatInput, setChatInput] = useState('');
+  const [chatMessages, setChatMessages] = useState<Array<{ role: 'user' | 'coach'; text: string }>>([]);
 
   const resolvedPuuid = puuid || currentPlayer?.puuid || '';
   const region = searchParams.get('region') || 'americas';
@@ -39,6 +48,23 @@ export function MatchHistory() {
       setRecaps((current) => ({ ...current, [recap.match_id]: recap }));
     },
   });
+  const chatMutation = useMutation({
+    mutationFn: (question: string) => sendCoachQuestion(resolvedPuuid, question),
+  });
+
+  const appendMention = (matchId: string) => {
+    setChatInput((current) => (current.trim() ? `${current} @${matchId} ` : `@${matchId} `));
+  };
+
+  const submitChat = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const trimmed = chatInput.trim();
+    if (!trimmed || chatMutation.isPending) return;
+    setChatInput('');
+    setChatMessages((current) => [...current, { role: 'user', text: trimmed }]);
+    const answer: CoachChatResponse = await chatMutation.mutateAsync(trimmed);
+    setChatMessages((current) => [...current, { role: 'coach', text: answer.answer }]);
+  };
 
   useEffect(() => {
     if (!resolvedPuuid || hasSyncedRef.current) return;
@@ -231,6 +257,15 @@ export function MatchHistory() {
                           </div>
                         </div>
                       )}
+                      <div className="border-t border-gray-700 pt-3">
+                        <button
+                          type="button"
+                          onClick={() => appendMention(recap.match_id)}
+                          className="px-3 py-1 rounded bg-yellow-500 text-black text-xs font-semibold hover:bg-yellow-400 transition-colors"
+                        >
+                          提问这场 @{recap.match_id}
+                        </button>
+                      </div>
                     </div>
                   </section>
                 )}
@@ -248,6 +283,53 @@ export function MatchHistory() {
           <p className="text-gray-400 text-center py-8">暂无比赛记录</p>
         )}
       </div>
+
+      <section className="fixed bottom-4 right-4 w-[360px] max-w-[calc(100vw-2rem)] bg-gray-900 border border-gray-700 rounded-xl shadow-xl z-20">
+        <header className="px-4 py-3 border-b border-gray-700">
+          <p className="text-white font-semibold">AI 教练对话</p>
+          <p className="text-gray-400 text-xs mt-1">可 mention 比赛 ID，例如 @TW2_415032107</p>
+        </header>
+        <div className="h-64 overflow-y-auto px-4 py-3 space-y-2">
+          {chatMessages.length === 0 && (
+            <p className="text-gray-500 text-sm">先点击任一比赛下方“提问这场”，或直接输入问题。</p>
+          )}
+          {chatMessages.map((message, index) => (
+            <div key={`${message.role}-${index}`} className={message.role === 'user' ? 'text-right' : 'text-left'}>
+              <p
+                className={`inline-block max-w-[90%] rounded-lg px-3 py-2 text-sm ${
+                  message.role === 'user' ? 'bg-yellow-500 text-black' : 'bg-gray-800 text-gray-100'
+                }`}
+              >
+                {message.text}
+              </p>
+            </div>
+          ))}
+          {chatMutation.isPending && (
+            <p className="text-gray-400 text-sm">AI 正在思考...</p>
+          )}
+        </div>
+        <form onSubmit={submitChat} className="p-3 border-t border-gray-700 flex gap-2">
+          <input
+            type="text"
+            value={chatInput}
+            onChange={(event) => setChatInput(event.target.value)}
+            placeholder="输入问题，或 @matchId 后提问"
+            className="flex-1 px-3 py-2 bg-gray-800 border border-gray-600 rounded text-white text-sm focus:outline-none focus:border-yellow-500"
+          />
+          <button
+            type="submit"
+            disabled={!chatInput.trim() || chatMutation.isPending}
+            className="px-3 py-2 bg-yellow-500 text-black font-semibold text-sm rounded hover:bg-yellow-400 disabled:opacity-50"
+          >
+            发送
+          </button>
+        </form>
+        {chatMutation.isError && (
+          <p className="px-3 pb-3 text-red-400 text-xs">
+            {chatMutation.error instanceof Error ? chatMutation.error.message : '提问失败，请稍后再试'}
+          </p>
+        )}
+      </section>
     </div>
   );
 }
