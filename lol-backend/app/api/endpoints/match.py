@@ -396,7 +396,7 @@ async def fetch_player_matches(
                             puuid=effective_puuid,
                             summoner_name=player.summoner_name,
                             tag_line=player.tag_line,
-                            summoner_id=player.summoner_id or "",
+                            summoner_id=player.summoner_id,
                             profile_icon_id=player.profile_icon_id or 0,
                             summoner_level=player.summoner_level or 1,
                             revision_date=player.revision_date,

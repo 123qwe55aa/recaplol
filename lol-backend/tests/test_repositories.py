@@ -114,6 +114,36 @@ class TestPlayerRepository:
             )
 
             mock_create.assert_called_once()
+            created_player = mock_create.call_args.args[0]
+            assert created_player.summoner_id is None
+
+    @pytest.mark.asyncio
+    async def test_upsert_player_updates_existing_by_summoner_id(self, repository, mock_session):
+        """Test upsert_player updates existing row when summoner_id already exists."""
+        existing_player = Player(
+            puuid="old-puuid",
+            summoner_id="sum-123",
+            summoner_name="OldName",
+            tag_line="TW2",
+        )
+        # First lookup by puuid -> None, second lookup by summoner_id -> existing
+        mock_result_by_puuid = MagicMock()
+        mock_result_by_puuid.scalar_one_or_none.return_value = None
+        mock_result_by_summoner_id = MagicMock()
+        mock_result_by_summoner_id.scalar_one_or_none.return_value = existing_player
+        mock_session.execute.side_effect = [mock_result_by_puuid, mock_result_by_summoner_id]
+
+        result = await repository.upsert_player(
+            puuid="new-puuid",
+            summoner_name="NewName",
+            tag_line="TW2",
+            summoner_id="sum-123",
+        )
+
+        assert result is existing_player
+        assert result.puuid == "new-puuid"
+        assert result.summoner_name == "NewName"
+        mock_session.flush.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_get_recently_updated(self, repository, mock_session):

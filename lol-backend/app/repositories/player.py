@@ -28,6 +28,12 @@ class PlayerRepository(BaseRepository[Player]):
         )
         return result.scalar_one_or_none()
 
+    async def get_by_summoner_id(self, summoner_id: str) -> Optional[Player]:
+        result = await self.session.execute(
+            select(Player).where(Player.summoner_id == summoner_id)
+        )
+        return result.scalar_one_or_none()
+
     async def upsert_player(
         self,
         puuid: str,
@@ -35,8 +41,16 @@ class PlayerRepository(BaseRepository[Player]):
         tag_line: str,
         **kwargs
     ) -> Player:
+        # Avoid unique conflicts from empty-string summoner IDs.
+        if kwargs.get("summoner_id") == "":
+            kwargs["summoner_id"] = None
+
         existing = await self.get_by_puuid(puuid)
+        if not existing and kwargs.get("summoner_id"):
+            existing = await self.get_by_summoner_id(kwargs["summoner_id"])
+
         if existing:
+            existing.puuid = puuid
             existing.summoner_name = summoner_name
             existing.tag_line = tag_line
             for key, value in kwargs.items():
