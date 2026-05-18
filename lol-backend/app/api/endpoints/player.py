@@ -1,5 +1,6 @@
 """Player API endpoints."""
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
 
@@ -200,21 +201,30 @@ async def get_player_by_summoner(
                         break
 
             # Upsert player
-            player = await repo.upsert_player(
-                puuid=puuid,
-                summoner_name=summoner_data.get("name", summoner_name),
-                tag_line=tag_line,
-                summoner_id=summoner_data.get("id"),
-                profile_icon_id=summoner_data.get("profileIconId", 0),
-                summoner_level=summoner_data.get("summonerLevel", 0),
-                revision_date=summoner_data.get("revisionDate", 0),
-                ranked_solo_tier=solo_rank.get("tier") if solo_rank else None,
-                ranked_solo_rank=solo_rank.get("rank") if solo_rank else None,
-                ranked_solo_league_points=solo_rank.get("leaguePoints") if solo_rank else 0,
-                ranked_solo_wins=solo_rank.get("wins", 0) if solo_rank else 0,
-                ranked_solo_losses=solo_rank.get("losses", 0) if solo_rank else 0,
-            )
-            await db.commit()
+            try:
+                player = await repo.upsert_player(
+                    puuid=puuid,
+                    summoner_name=summoner_data.get("name", summoner_name),
+                    tag_line=tag_line,
+                    summoner_id=summoner_data.get("id"),
+                    profile_icon_id=summoner_data.get("profileIconId", 0),
+                    summoner_level=summoner_data.get("summonerLevel", 0),
+                    revision_date=summoner_data.get("revisionDate", 0),
+                    ranked_solo_tier=solo_rank.get("tier") if solo_rank else None,
+                    ranked_solo_rank=solo_rank.get("rank") if solo_rank else None,
+                    ranked_solo_league_points=solo_rank.get("leaguePoints") if solo_rank else 0,
+                    ranked_solo_wins=solo_rank.get("wins", 0) if solo_rank else 0,
+                    ranked_solo_losses=solo_rank.get("losses", 0) if solo_rank else 0,
+                )
+                await db.commit()
+            except IntegrityError:
+                await db.rollback()
+                # Concurrent syncs or legacy rows can race here; return existing row if present.
+                player = await repo.get_by_puuid(puuid) or await repo.get_by_summoner_name(
+                    summoner_data.get("name", summoner_name), tag_line
+                )
+                if not player:
+                    raise
 
     return _build_player_response(player)
 
