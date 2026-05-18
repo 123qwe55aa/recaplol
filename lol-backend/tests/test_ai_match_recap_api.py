@@ -119,6 +119,27 @@ async def test_generate_ai_match_recap(monkeypatch):
             "total_minions_killed": 160,
             "neutral_minions_killed": 0,
             "vision_score": 18,
+            "item0": 1056,
+            "item1": 3020,
+            "item2": 6655,
+            "item3": 0,
+            "item4": 0,
+            "item5": 0,
+            "item6": 3340,
+            "perks": {
+                "styles": [
+                    {
+                        "description": "primaryStyle",
+                        "style": 8100,
+                        "selections": [{"perk": 8112}, {"perk": 8139}],
+                    },
+                    {
+                        "description": "subStyle",
+                        "style": 8200,
+                        "selections": [{"perk": 8210}],
+                    },
+                ]
+            },
         },
     )()
 
@@ -156,6 +177,16 @@ async def test_generate_ai_match_recap(monkeypatch):
     assert data["recap"]["next_game_focus"] == "小龙前 90 秒不要单独过河。"
     assert provider.seen_match_context["role_profile"]["role"] == "MIDDLE"
     assert provider.seen_match_context["role_profile"]["cs_is_primary"] is True
+    assert provider.seen_match_context["participant"]["items"] == {
+        "inventory": [1056, 3020, 6655],
+        "trinket": 3340,
+    }
+    assert provider.seen_match_context["participant"]["runes"] == {
+        "primary_style": 8100,
+        "sub_style": 8200,
+        "keystone": 8112,
+        "selected_perks": [8112, 8139, 8210],
+    }
     assert provider.seen_timeline_recap["role_profile"]["role"] == "MIDDLE"
 
 

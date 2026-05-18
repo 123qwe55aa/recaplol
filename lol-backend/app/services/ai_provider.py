@@ -37,6 +37,7 @@ Return exactly one JSON object with this shape:
   "follow_up_questions": ["string"]
 }
 Use 1-3 priorities. Evidence must quote supplied stats, same-role enemy comparison, or match context. If context.lane_opponent_comparison.sample_size is greater than 0, include at least one evidence item that compares the player against the enemy in the same position. Do not use report_summary, findings, or positive_highlights.
+When context.matches include items or runes, evaluate whether recent itemization and rune choices fit the champion, role, opponent, and observed game state. Include item or rune evidence when it materially explains a priority; if the supplied item/rune IDs are insufficient to judge, say evidence is insufficient instead of inventing names.
 """.strip()
 
 CHAT_SCHEMA_INSTRUCTIONS = """
@@ -67,6 +68,7 @@ Return exactly one JSON object with this shape:
 }
 Use only supplied match_context and timeline_recap. Make this recap specific to this single game.
 Use match_context.role_profile as the evaluation contract. Do not make CS a primary criticism for UTILITY or JUNGLE. For UTILITY, prioritize vision control, assist participation, objective setup, deaths, and positioning. For lane carries, CS can be a primary point only when role_profile.cs_is_primary is true.
+When match_context.participant includes items or runes, evaluate whether this game's itemization and rune choices fit the champion, role, opponent, and observed game state. Mention item or rune evidence when it changes the recap; if the supplied item/rune IDs are insufficient to judge, say evidence is insufficient instead of inventing names.
 Do not include markdown or extra keys. Do not invent hidden information or skill-shot details.
 """.strip()
 

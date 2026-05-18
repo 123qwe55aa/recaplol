@@ -28,7 +28,11 @@ from app.schemas.coach import (
     CoachReportResponse,
 )
 from app.services.ai_provider import AIProvider, AIProviderError, get_ai_provider
-from app.services.coach_context_builder import CoachContextBuilder
+from app.services.coach_context_builder import (
+    CoachContextBuilder,
+    build_participant_items,
+    build_participant_runes,
+)
 from app.services.coach_rule_engine import score_context
 from app.services.match_timeline_analyzer import build_match_recap
 
@@ -213,6 +217,8 @@ async def generate_match_ai_recap(
             "cs": (participant.total_minions_killed or 0)
             + (participant.neutral_minions_killed or 0),
             "vision_score": participant.vision_score,
+            "items": build_participant_items(participant),
+            "runes": build_participant_runes(participant),
         },
     }
     fingerprint = _match_recap_fingerprint(

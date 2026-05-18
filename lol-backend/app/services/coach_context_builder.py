@@ -147,6 +147,8 @@ class CoachContextBuilder:
                     "vision_score": _get(participant, "vision_score"),
                     "gold_earned": _get(participant, "gold_earned"),
                     "game_duration": _get(match, "game_duration"),
+                    "items": build_participant_items(participant),
+                    "runes": build_participant_runes(participant),
                     "lane_opponent": lane_opponent_dict,
                 }
             )
@@ -309,6 +311,53 @@ def _mastery_dict(mastery: Any) -> dict:
         "champion_id": _get(mastery, "champion_id"),
         "champion_level": _get(mastery, "champion_level"),
         "champion_points": _get(mastery, "champion_points"),
+    }
+
+
+def build_participant_items(participant: Any) -> dict:
+    inventory = [
+        int(item_id)
+        for item_id in (_get(participant, f"item{index}") for index in range(6))
+        if item_id
+    ]
+    trinket = _get(participant, "item6")
+    return {
+        "inventory": inventory,
+        "trinket": int(trinket) if trinket else None,
+    }
+
+
+def build_participant_runes(participant: Any) -> dict:
+    perks = _get(participant, "perks") or {}
+    styles = perks.get("styles") if isinstance(perks, dict) else []
+    if not isinstance(styles, list):
+        styles = []
+
+    primary_style = None
+    sub_style = None
+    selected_perks = []
+    for style in styles:
+        if not isinstance(style, dict):
+            continue
+        description = style.get("description")
+        style_id = style.get("style")
+        if description == "primaryStyle":
+            primary_style = style_id
+        elif description == "subStyle":
+            sub_style = style_id
+
+        selections = style.get("selections") or []
+        if not isinstance(selections, list):
+            continue
+        for selection in selections:
+            if isinstance(selection, dict) and selection.get("perk"):
+                selected_perks.append(int(selection["perk"]))
+
+    return {
+        "primary_style": primary_style,
+        "sub_style": sub_style,
+        "keystone": selected_perks[0] if selected_perks else None,
+        "selected_perks": selected_perks,
     }
 
 

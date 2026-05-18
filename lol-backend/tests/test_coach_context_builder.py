@@ -44,6 +44,32 @@ async def test_build_context_aggregates_player_recent_matches_and_fingerprint():
             neutral_minions_killed=12,
             vision_score=24,
             gold_earned=11000,
+            item0=1056,
+            item1=3020,
+            item2=6655,
+            item3=0,
+            item4=0,
+            item5=0,
+            item6=3340,
+            perks={
+                "styles": [
+                    {
+                        "description": "primaryStyle",
+                        "style": 8100,
+                        "selections": [
+                            {"perk": 8112},
+                            {"perk": 8139},
+                            {"perk": 8138},
+                            {"perk": 8106},
+                        ],
+                    },
+                    {
+                        "description": "subStyle",
+                        "style": 8200,
+                        "selections": [{"perk": 8210}, {"perk": 8236}],
+                    },
+                ]
+            },
         ),
         "NA1_2": MatchParticipant(
             match_id="NA1_2",
@@ -199,6 +225,16 @@ async def test_build_context_aggregates_player_recent_matches_and_fingerprint():
     }
     assert context["win_rate"] == 1.0
     assert context["matches"][1]["win"] is True
+    assert context["matches"][0]["items"] == {
+        "inventory": [1056, 3020, 6655],
+        "trinket": 3340,
+    }
+    assert context["matches"][0]["runes"] == {
+        "primary_style": 8100,
+        "sub_style": 8200,
+        "keystone": 8112,
+        "selected_perks": [8112, 8139, 8138, 8106, 8210, 8236],
+    }
     assert context["matches"][0]["lane_opponent"]["champion_name"] == "LeBlanc"
     assert context["matches"][0]["lane_opponent"]["cs"] == 178.0
     assert context["lane_opponent_comparison"]["sample_size"] == 3

@@ -124,6 +124,8 @@ async def test_openai_provider_includes_report_schema_in_prompt(monkeypatch):
     assert '"priorities": [' in prompt
     assert '"follow_up_questions": [' in prompt
     assert "Do not use report_summary, findings, or positive_highlights" in prompt
+    assert "items" in prompt
+    assert "runes" in prompt
 
 
 @pytest.mark.asyncio
