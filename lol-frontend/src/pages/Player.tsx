@@ -1,5 +1,6 @@
 import { useParams, Link } from 'react-router-dom';
 import { useState } from 'react';
+import axios from 'axios';
 import { usePlayer, useChampionMastery } from '../hooks/usePlayer';
 import { refreshPlayerByPuuid } from '../services/api';
 import { PlayerCard } from '../components/PlayerCard';
@@ -30,7 +31,13 @@ export function PlayerPage() {
       await refetch();
       setRefreshMessage('刷新成功');
     } catch (refreshError) {
-      const message = refreshError instanceof Error ? refreshError.message : '刷新失败，请稍后重试';
+      let message = '刷新失败，请稍后重试';
+      if (axios.isAxiosError(refreshError)) {
+        const detail = refreshError.response?.data?.detail;
+        message = typeof detail === 'string' ? detail : (refreshError.message || message);
+      } else if (refreshError instanceof Error) {
+        message = refreshError.message;
+      }
       setRefreshMessage(message);
     } finally {
       setIsRefreshing(false);
