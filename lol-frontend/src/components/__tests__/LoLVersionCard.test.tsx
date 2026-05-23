@@ -9,7 +9,7 @@ vi.mock('../../hooks/useLolVersion', () => ({
 }));
 
 describe('LoLVersionCard', () => {
-  it('shows the latest LoL client version and Taiwan patch notes link', () => {
+  it('shows the latest LoL client version with mirror and Taiwan official links', () => {
     mockUseLolVersion.mockReturnValue({
       data: '26.10.1',
       isLoading: false,
@@ -20,7 +20,11 @@ describe('LoLVersionCard', () => {
 
     expect(screen.getByText('LoL 客户端版本')).toBeInTheDocument();
     expect(screen.getByText('26.10.1')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '查看台服版本更新' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: '查看版本更新（镜像）' })).toHaveAttribute(
+      'href',
+      'https://leagueoflegends.fandom.com/wiki/Patch_(League_of_Legends)'
+    );
+    expect(screen.getByRole('link', { name: '台服官方链接' })).toHaveAttribute(
       'href',
       'https://www.leagueoflegends.com/zh-tw/news/tags/patch-notes/'
     );
