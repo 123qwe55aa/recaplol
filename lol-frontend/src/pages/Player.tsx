@@ -8,6 +8,7 @@ import { ChampionPortrait } from '../components/ChampionPortrait';
 import { LoLVersionCard } from '../components/LoLVersionCard';
 import { LoLPatchAnnouncementCard } from '../components/LoLPatchAnnouncementCard';
 import { PlayerCoachChatPanel } from '../components/PlayerCoachChatPanel';
+import { RuneSimulator } from '../components/RuneSimulator';
 import type { ChampionMastery } from '../types';
 
 function getRegionalRouting(tagLine = '') {
@@ -81,6 +82,7 @@ export function PlayerPage() {
           <LoLVersionCard />
           <LoLPatchAnnouncementCard />
           <PlayerCoachChatPanel puuid={player.puuid} />
+          <RuneSimulator recommendedRunes={[]} />
         </div>
         <div className="mt-4 flex items-center gap-3">
           <button

@@ -99,5 +99,6 @@ describe('PlayerPage', () => {
     expect(screen.getByText('LoL 版本公告')).toBeInTheDocument();
     expect(screen.getByText('《英雄聯盟》26.10版本更新公告')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '问 AI Coach' })).toBeInTheDocument();
+    expect(screen.getByText('符文模拟器')).toBeInTheDocument();
   });
 });
