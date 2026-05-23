@@ -494,6 +494,7 @@ class OPGGScraper:
             "skills": [],
             "runes": [],
             "rune_setup": None,
+            "rune_setup_valid": False,
             "matchups": {"counters": [], "countered_by": []},
             "synergies": [],
             "last_updated": datetime.now().isoformat(),
@@ -655,10 +656,12 @@ class OPGGScraper:
         if len(rune_names) >= 4:
             primary = rune_names[:4]
             secondary = rune_names[4:6]
-            result["rune_setup"] = {
-                "primary_runes": primary,
-                "secondary_runes": secondary,
-            }
+            if len(primary) == 4 and len(secondary) == 2:
+                result["rune_setup"] = {
+                    "primary_runes": primary,
+                    "secondary_runes": secondary,
+                }
+                result["rune_setup_valid"] = True
 
         # Parse role/build info
         role_selectors = [".role-badge", ".position", '[class*="role"]', '[class*="position"]']

@@ -72,6 +72,7 @@ class ChampionBuild(BaseModel):
     skills: List[str] = Field(default_factory=list)
     runes: List[Dict[str, Any]] = Field(default_factory=list)
     rune_setup: Optional[RuneSetup] = None
+    rune_setup_valid: bool = False
     matchups: MatchupList = Field(default_factory=MatchupList)
     synergies: List[ChampionSynergy] = Field(default_factory=list)
     last_updated: datetime

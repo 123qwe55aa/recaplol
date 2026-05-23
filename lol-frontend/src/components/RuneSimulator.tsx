@@ -312,10 +312,12 @@ function RuneNode({
 export function RuneSimulator({
   recommendedRunes,
   recommendedSetup,
+  recommendedSetupValid = true,
   defaultCollapsed = false,
 }: {
   recommendedRunes: string[];
   recommendedSetup?: RecommendedRuneSetup | null;
+  recommendedSetupValid?: boolean;
   defaultCollapsed?: boolean;
 }) {
   const initialPresets = loadPresets();
@@ -580,6 +582,11 @@ export function RuneSimulator({
               </span>
             ))}
           </div>
+          {recommendedSetup && !recommendedSetupValid && (
+            <p className="text-xs text-yellow-400 mt-2">
+              OP.GG 推荐符文配置不完整，已保留名称列表作为降级展示。
+            </p>
+          )}
         </div>
       )}
 
@@ -616,7 +623,8 @@ export function RuneSimulator({
           <button
             type="button"
             onClick={applyRecommendedSetup}
-            className="px-3 py-2 rounded-lg bg-purple-700 text-white hover:bg-purple-600 text-sm"
+            disabled={!recommendedSetupValid}
+            className="px-3 py-2 rounded-lg bg-purple-700 text-white hover:bg-purple-600 disabled:opacity-60 text-sm"
           >
             应用 OP.GG 符文
           </button>

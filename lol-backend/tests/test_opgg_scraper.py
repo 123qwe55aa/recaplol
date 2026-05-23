@@ -45,6 +45,19 @@ SAMPLE_BUILD_PAGE_WITH_FULL_RUNES_HTML = """
 </html>
 """
 
+SAMPLE_BUILD_PAGE_WITH_INCOMPLETE_RUNES_HTML = """
+<html>
+<body>
+    <div class="champion-stats-trend-rate">52.34%</div>
+    <img class="rune-image" alt="Conqueror" />
+    <img class="rune-image" alt="Triumph" />
+    <img class="rune-image" alt="Legend: Alacrity" />
+    <img class="rune-image" alt="Coup de Grace" />
+    <img class="rune-image" alt="Taste of Blood" />
+</body>
+</html>
+"""
+
 SAMPLE_VS_PAGE_HTML = """
 <html>
 <body>
@@ -238,6 +251,14 @@ class TestOPGGScraper:
             "primary_runes": ["Conqueror", "Triumph", "Legend: Alacrity", "Coup de Grace"],
             "secondary_runes": ["Taste of Blood", "Treasure Hunter"],
         }
+        assert result["rune_setup_valid"] is True
+
+    def test_parse_build_page_marks_incomplete_rune_setup_invalid(self, scraper, filters):
+        """Test incomplete OP.GG runes fallback keeps list but marks structured setup invalid."""
+        result = scraper._parse_build_page(SAMPLE_BUILD_PAGE_WITH_INCOMPLETE_RUNES_HTML, filters)
+        assert len(result["runes"]) == 5
+        assert result["rune_setup"] is None
+        assert result["rune_setup_valid"] is False
 
     def test_parse_vs_page(self, scraper, filters):
         """Test parsing VS (counter matchups) page."""

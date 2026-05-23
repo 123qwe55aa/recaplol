@@ -271,6 +271,7 @@ function BuildSection({ data }: { data: NonNullable<import('../types').ChampionB
       <RuneSimulator
         recommendedRunes={data.runes.map((rune) => rune.name)}
         recommendedSetup={data.rune_setup ?? null}
+        recommendedSetupValid={data.rune_setup_valid ?? false}
       />
     </div>
   );

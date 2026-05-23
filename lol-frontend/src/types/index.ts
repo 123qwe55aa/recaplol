@@ -98,6 +98,7 @@ export interface OpggBuild {
     primary_runes: string[];
     secondary_runes: string[];
   } | null;
+  rune_setup_valid?: boolean;
   matchups: OpggMatchups;
   synergies: OpggSynergy[];
   last_updated: string;
