@@ -41,7 +41,7 @@ export function PlayerCard({ player }: PlayerCardProps) {
       </div>
 
       <div className="mt-6 pt-6 border-t border-gray-700">
-        <RuneSimulator recommendedRunes={[]} />
+        <RuneSimulator recommendedRunes={[]} defaultCollapsed />
       </div>
 
       {player.recentChampions.length > 0 && (

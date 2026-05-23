@@ -243,7 +243,13 @@ function RuneNode({
   );
 }
 
-export function RuneSimulator({ recommendedRunes }: { recommendedRunes: string[] }) {
+export function RuneSimulator({
+  recommendedRunes,
+  defaultCollapsed = false,
+}: {
+  recommendedRunes: string[];
+  defaultCollapsed?: boolean;
+}) {
   const initialPresets = loadPresets();
   const initialPreset = initialPresets[0];
   const [presets, setPresets] = useState<RunePresetRecord[]>(initialPresets);
@@ -261,6 +267,7 @@ export function RuneSimulator({ recommendedRunes }: { recommendedRunes: string[]
     initialPreset?.shardSelections?.length === 3 ? initialPreset.shardSelections : [null, null, null]
   );
   const [notice, setNotice] = useState('');
+  const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed);
 
   const primaryPath = useMemo(
     () => RUNE_PATHS.find((path) => path.id === primaryPathId) ?? RUNE_PATHS[0],
@@ -393,9 +400,22 @@ export function RuneSimulator({ recommendedRunes }: { recommendedRunes: string[]
     <div className="bg-gray-800 rounded-xl p-6 space-y-6">
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <h3 className="text-xl font-bold text-white">符文模拟器</h3>
-        <div className="text-sm text-gray-400">模拟游戏内符文页配置（展示用途）</div>
+        <div className="flex items-center gap-3">
+          <div className="text-sm text-gray-400">模拟游戏内符文页配置（展示用途）</div>
+          <button
+            type="button"
+            aria-label="toggle-rune-simulator"
+            aria-expanded={!isCollapsed}
+            onClick={() => setIsCollapsed((prev) => !prev)}
+            className="px-3 py-1 rounded-lg bg-gray-700 text-white hover:bg-gray-600 text-sm"
+          >
+            {isCollapsed ? '展开' : '收起'}
+          </button>
+        </div>
       </div>
 
+      {isCollapsed ? null : (
+        <>
       {recommendedRunes.length > 0 && (
         <div className="bg-gray-700 rounded-lg p-3">
           <p className="text-gray-300 text-sm mb-2">OP.GG 推荐</p>
@@ -595,6 +615,8 @@ export function RuneSimulator({ recommendedRunes }: { recommendedRunes: string[]
           <p>碎片：{(shardSelections.filter(Boolean) as string[]).join(' / ') || '未选择'}</p>
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 }

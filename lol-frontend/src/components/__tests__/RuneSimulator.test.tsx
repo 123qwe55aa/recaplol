@@ -3,6 +3,18 @@ import { describe, expect, it, vi } from 'vitest';
 import { RuneSimulator } from '../RuneSimulator';
 
 describe('RuneSimulator', () => {
+  it('supports collapsing and expanding', () => {
+    render(<RuneSimulator recommendedRunes={[]} defaultCollapsed />);
+    expect(screen.queryByText('当前符文页')).toBeNull();
+
+    const toggle = screen.getByRole('button', { name: 'toggle-rune-simulator' });
+    fireEvent.click(toggle);
+    expect(screen.getByText('当前符文页')).toBeInTheDocument();
+
+    fireEvent.click(toggle);
+    expect(screen.queryByText('当前符文页')).toBeNull();
+  });
+
   it('keeps secondary path different from primary path', () => {
     render(<RuneSimulator recommendedRunes={['奥术彗星']} />);
 
