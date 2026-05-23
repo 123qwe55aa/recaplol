@@ -58,6 +58,16 @@ SAMPLE_BUILD_PAGE_WITH_INCOMPLETE_RUNES_HTML = """
 </html>
 """
 
+SAMPLE_BUILD_PAGE_WITH_PERK_ID_RUNES_HTML = """
+<html>
+<body>
+    <script>
+        self.__next_f.push([1,"/perk/8112.png /perk/8128.png /perk/9923.png /perk/8138.png /perk/8210.png /perk/8236.png"]);
+    </script>
+</body>
+</html>
+"""
+
 SAMPLE_VS_PAGE_HTML = """
 <html>
 <body>
@@ -259,6 +269,14 @@ class TestOPGGScraper:
         assert len(result["runes"]) == 5
         assert result["rune_setup"] is None
         assert result["rune_setup_valid"] is False
+
+    def test_parse_build_page_extracts_perk_id_runes_from_script_payload(self, scraper, filters):
+        """Test current OP.GG app-router fallback parses /perk/<id>.png entries."""
+        result = scraper._parse_build_page(SAMPLE_BUILD_PAGE_WITH_PERK_ID_RUNES_HTML, filters)
+        assert [r["name"] for r in result["runes"]] == [
+            "perk_8112", "perk_8128", "perk_9923", "perk_8138", "perk_8210", "perk_8236"
+        ]
+        assert result["rune_setup_valid"] is True
 
     def test_parse_vs_page(self, scraper, filters):
         """Test parsing VS (counter matchups) page."""

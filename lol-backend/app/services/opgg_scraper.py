@@ -67,6 +67,7 @@ class OPGGScraper:
     UGG_TIER = "emerald_plus"
     UGG_PATCH_REGION = "1.5.0.json"
     CDRAGON_CHAMPION_SUMMARY = "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-summary.json"
+    DDRAGON_VERSIONS_URL = "https://ddragon.leagueoflegends.com/api/versions.json"
 
     # Default headers to mimic browser
     HEADERS = {
@@ -100,6 +101,8 @@ class OPGGScraper:
         self._failure_count = 0
         self._cache_hit_count = 0
         self._champion_id_to_name: Dict[int, str] = {}
+        self._rune_id_to_name: Dict[int, str] = {}
+        self._rune_meta_by_id: Dict[int, Dict[str, Any]] = {}
 
     async def __aenter__(self):
         self._client = httpx.AsyncClient(
@@ -415,6 +418,119 @@ class OPGGScraper:
             uniq.append(patch)
         return uniq[:8]
 
+    async def _get_rune_id_to_name_map(self) -> Dict[int, str]:
+        """Get rune perk ID -> localized rune name mapping."""
+        if self._rune_id_to_name:
+            return self._rune_id_to_name
+
+        def flatten_runes(payload: Any) -> Dict[int, Dict[str, Any]]:
+            mapping: Dict[int, Dict[str, Any]] = {}
+            if not isinstance(payload, list):
+                return mapping
+            for style in payload:
+                style_id = style.get("id")
+                for slot_index, slot in enumerate(style.get("slots", [])):
+                    for perk in slot.get("runes", []):
+                        perk_id = perk.get("id")
+                        name = str(perk.get("name", "")).strip()
+                        if isinstance(perk_id, int) and name:
+                            mapping[perk_id] = {
+                                "name": name,
+                                "style_id": style_id,
+                                "slot_index": slot_index,
+                            }
+            return mapping
+
+        try:
+            versions = await self._fetch_json(self.DDRAGON_VERSIONS_URL)
+            latest = versions[0] if isinstance(versions, list) and versions else None
+            if not latest:
+                return {}
+
+            zh_url = f"https://ddragon.leagueoflegends.com/cdn/{latest}/data/zh_CN/runesReforged.json"
+            en_url = f"https://ddragon.leagueoflegends.com/cdn/{latest}/data/en_US/runesReforged.json"
+
+            zh_payload = await self._fetch_json(zh_url)
+            mapping = flatten_runes(zh_payload)
+
+            if not mapping:
+                en_payload = await self._fetch_json(en_url)
+                mapping = flatten_runes(en_payload)
+
+            self._rune_meta_by_id = mapping
+            self._rune_id_to_name = {
+                perk_id: meta.get("name", "")
+                for perk_id, meta in mapping.items()
+                if meta.get("name")
+            }
+            return self._rune_id_to_name
+        except Exception as e:
+            logger.warning("rune_id_map_fetch_failed", error=str(e))
+            return {}
+
+    def _select_best_rune_window_from_ids(
+        self,
+        rune_ids: List[int],
+        rune_meta_by_id: Dict[int, Dict[str, Any]],
+    ) -> List[int]:
+        """Select first valid 4+2 rune combination from perk ids using style/slot metadata."""
+        if len(rune_ids) < 6:
+            return rune_ids[:6]
+
+        for start_idx, start_id in enumerate(rune_ids):
+            start_meta = rune_meta_by_id.get(start_id)
+            if not start_meta:
+                continue
+            primary_style = start_meta.get("style_id")
+            if primary_style is None:
+                continue
+
+            primary_by_slot: Dict[int, int] = {}
+            primary_end_idx = start_idx
+            for idx in range(start_idx, len(rune_ids)):
+                perk_id = rune_ids[idx]
+                meta = rune_meta_by_id.get(perk_id)
+                if not meta or meta.get("style_id") != primary_style:
+                    continue
+                slot = meta.get("slot_index")
+                if slot in {0, 1, 2, 3} and slot not in primary_by_slot:
+                    primary_by_slot[slot] = perk_id
+                    primary_end_idx = idx
+                if len(primary_by_slot) == 4:
+                    break
+
+            if set(primary_by_slot.keys()) != {0, 1, 2, 3}:
+                continue
+
+            secondary_completion: Optional[tuple[int, List[int]]] = None
+            secondary_slots_by_style: Dict[Any, Dict[int, int]] = {}
+
+            for idx in range(primary_end_idx + 1, len(rune_ids)):
+                perk_id = rune_ids[idx]
+                meta = rune_meta_by_id.get(perk_id)
+                if not meta:
+                    continue
+                style_id = meta.get("style_id")
+                slot = meta.get("slot_index")
+                if style_id is None or style_id == primary_style or slot not in {1, 2, 3}:
+                    continue
+
+                bucket = secondary_slots_by_style.setdefault(style_id, {})
+                if slot not in bucket:
+                    bucket[slot] = perk_id
+                if len(bucket) >= 2:
+                    ids = [bucket[k] for k in sorted(bucket.keys())[:2]]
+                    secondary_completion = (idx, ids)
+                    break
+
+            if not secondary_completion:
+                continue
+
+            primary_ids = [primary_by_slot[0], primary_by_slot[1], primary_by_slot[2], primary_by_slot[3]]
+            return primary_ids + secondary_completion[1]
+
+        return rune_ids[:6]
+
     def _parse_ugg_duos_payload(
         self,
         payload: Any,
@@ -649,6 +765,26 @@ class OPGGScraper:
             rune_name = rune.get("alt") or rune.get("title") or rune.get_text()
             if rune_name and rune_name not in [r["name"] for r in runes]:
                 runes.append({"name": rune_name.strip()})
+
+        # Fallback for current OP.GG app-router pages where rune imgs are embedded in script payload.
+        rune_ids: List[int] = []
+        if not runes:
+            for token in re.findall(r"/perk/(\d+)\.png", html):
+                try:
+                    perk_id = int(token)
+                except ValueError:
+                    continue
+                if perk_id < 8000:  # Ignore non-rune assets.
+                    continue
+                if perk_id in rune_ids:
+                    continue
+                rune_ids.append(perk_id)
+                if len(rune_ids) >= 80:
+                    break
+            if rune_ids:
+                runes = [{"name": f"perk_{perk_id}"} for perk_id in rune_ids]
+                result["_rune_ids"] = rune_ids
+
         result["runes"] = runes
 
         # Build a structured rune setup for downstream simulator usage.
@@ -882,6 +1018,20 @@ class OPGGScraper:
         try:
             html = await self._fetch_page(url, champ_slug, filters)
             data = self._parse_build_page(html, filters)
+
+            # Normalize fallback perk ids (e.g. perk_8112) into localized rune names.
+            rune_ids = data.pop("_rune_ids", [])
+            if rune_ids:
+                rune_map = await self._get_rune_id_to_name_map()
+                selected = self._select_best_rune_window_from_ids(rune_ids, self._rune_meta_by_id)
+                resolved = [rune_map.get(perk_id, f"perk_{perk_id}") for perk_id in selected]
+                data["runes"] = [{"name": name} for name in resolved]
+                if len(resolved) >= 6:
+                    data["rune_setup"] = {
+                        "primary_runes": resolved[:4],
+                        "secondary_runes": resolved[4:6],
+                    }
+                    data["rune_setup_valid"] = True
 
             # Try to also get counters (both directions)
             vs_url = self._build_vs_url(champ_slug, region, queue, tier)
