@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useChampionBuild } from '../hooks/useChampionBuild';
 import { ChampionPortrait } from '../components/ChampionPortrait';
+import { RuneSimulator } from '../components/RuneSimulator';
 import type { RegionCode, QueueType } from '../types';
 import { loadItemData, type ItemDetail } from '../services/itemData';
 
@@ -267,22 +268,7 @@ function BuildSection({ data }: { data: NonNullable<import('../types').ChampionB
         </div>
       )}
 
-      {/* Runes */}
-      {data.runes.length > 0 && (
-        <div className="bg-gray-800 rounded-xl p-6">
-          <h3 className="text-xl font-bold text-white mb-4">符文</h3>
-          <div className="flex flex-wrap gap-3">
-            {data.runes.map((rune, idx) => (
-              <span
-                key={idx}
-                className="bg-purple-600 text-white px-4 py-2 rounded-lg"
-              >
-                {rune.name}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
+      <RuneSimulator recommendedRunes={data.runes.map((rune) => rune.name)} />
     </div>
   );
 }
