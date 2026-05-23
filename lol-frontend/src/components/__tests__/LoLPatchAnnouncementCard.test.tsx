@@ -57,6 +57,14 @@ describe('LoLPatchAnnouncementCard', () => {
       'src',
       'https://ddragon.leagueoflegends.com/cdn/15.10.1/img/champion/Annie.png'
     );
+    expect(screen.getByAltText('多蘭之盔 图标')).toHaveAttribute(
+      'src',
+      'https://ddragon.leagueoflegends.com/cdn/15.10.1/img/item/3178.png'
+    );
+    expect(screen.getByAltText('冥火之觸 图标')).toHaveAttribute(
+      'src',
+      'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Sorcery/Scorch/Scorch.png'
+    );
     expect(screen.getByText(/安妮：Q 傷害提升/)).toBeInTheDocument();
     expect(screen.getByText(/安比薩：傷害提升/)).toBeInTheDocument();
     expect(screen.getByText(/多蘭之盔：生命 ：110 ⇒ 140/)).toBeInTheDocument();

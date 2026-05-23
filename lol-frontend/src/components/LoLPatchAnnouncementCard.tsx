@@ -176,10 +176,33 @@ function getCategoryIcon(category: string) {
 function EntityIcon({ section, item }: { section: string; item: string }) {
   const entityName = item.split(/[:：]/)[0]?.trim();
   const heroId = entityName ? CHAMPION_ICON_MAP[entityName] : undefined;
+  const itemId = entityName ? ITEM_ICON_MAP[entityName] : undefined;
+  const runeIconUrl = entityName ? RUNE_ICON_MAP[entityName] : undefined;
+
   if (section === '英雄' && heroId) {
     return (
       <img
         src={`https://ddragon.leagueoflegends.com/cdn/15.10.1/img/champion/${heroId}.png`}
+        alt={`${entityName} 图标`}
+        className="h-5 w-5 rounded object-cover"
+        loading="lazy"
+      />
+    );
+  }
+  if (section === '道具' && itemId) {
+    return (
+      <img
+        src={`https://ddragon.leagueoflegends.com/cdn/15.10.1/img/item/${itemId}.png`}
+        alt={`${entityName} 图标`}
+        className="h-5 w-5 rounded object-cover"
+        loading="lazy"
+      />
+    );
+  }
+  if (section === '符文' && runeIconUrl) {
+    return (
+      <img
+        src={runeIconUrl}
         alt={`${entityName} 图标`}
         className="h-5 w-5 rounded object-cover"
         loading="lazy"
@@ -199,4 +222,22 @@ const CHAMPION_ICON_MAP: Record<string, string> = {
   艾妮維亞: 'Anivia',
   李星: 'LeeSin',
   葵恩: 'Quinn',
+};
+
+const ITEM_ICON_MAP: Record<string, string> = {
+  多蘭之劍: '1055',
+  多蘭之戒: '1056',
+  多蘭之盾: '1054',
+  多蘭之弓: '3177',
+  多蘭之盔: '3178',
+  電流旋風劍: '6677',
+  風暴浪湧: '4646',
+  貪婪護脛: '3006',
+};
+
+const RUNE_ICON_MAP: Record<string, string> = {
+  冥火之觸: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Sorcery/Scorch/Scorch.png',
+  不死之握: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Resolve/GraspOfTheUndying/GraspOfTheUndying.png',
+  先攻: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Inspiration/FirstStrike/FirstStrike.png',
+  致命節奏: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Precision/LethalTempo/LethalTempoTemp.png',
 };
