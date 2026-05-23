@@ -117,7 +117,7 @@ export function LoLPatchAnnouncementCard() {
               .map(([section, items]) => (
                 <section key={section} className="rounded-lg border border-gray-800 bg-gray-950 p-3">
                   <p className="text-sm font-semibold text-yellow-200">{section}</p>
-                  {section === '英雄' ? (
+                  {section === '英雄' || section === '道具' || section === '符文' ? (
                     <div className="mt-2 space-y-3">
                       {buildEntityGroups(items).map((group) => (
                         <div key={`${section}-${group.name}`} className="rounded border border-gray-800 bg-gray-900/60 p-2">
