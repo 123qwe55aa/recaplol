@@ -180,6 +180,11 @@ interface RunePresetRecord extends RunePreset {
   updatedAt: number;
 }
 
+interface RecommendedRuneSetup {
+  primary_runes: string[];
+  secondary_runes: string[];
+}
+
 interface RuneInfo {
   icon: string;
   shortDesc: string;
@@ -306,9 +311,11 @@ function RuneNode({
 
 export function RuneSimulator({
   recommendedRunes,
+  recommendedSetup,
   defaultCollapsed = false,
 }: {
   recommendedRunes: string[];
+  recommendedSetup?: RecommendedRuneSetup | null;
   defaultCollapsed?: boolean;
 }) {
   const initialPresets = loadPresets();
@@ -322,7 +329,11 @@ export function RuneSimulator({
     initialPreset?.primarySelections?.length === 4 ? initialPreset.primarySelections : buildInitialSelections(4)
   );
   const [secondarySelections, setSecondarySelections] = useState<(string | null)[]>(
-    initialPreset?.secondarySelections?.length === 2 ? initialPreset.secondarySelections : [null, null]
+    initialPreset?.secondarySelections?.length === 3
+      ? initialPreset.secondarySelections
+      : initialPreset?.secondarySelections?.length === 2
+        ? [initialPreset.secondarySelections[0], initialPreset.secondarySelections[1], null]
+        : [null, null, null]
   );
   const [shardSelections, setShardSelections] = useState<(string | null)[]>(
     initialPreset?.shardSelections?.length === 3 ? initialPreset.shardSelections : [null, null, null]
@@ -351,14 +362,14 @@ export function RuneSimulator({
     if (pathId === secondaryPathId) {
       const fallback = RUNE_PATHS.find((path) => path.id !== pathId);
       setSecondaryPathId((fallback?.id ?? 'domination') as RunePathId);
-      setSecondarySelections([null, null]);
+      setSecondarySelections([null, null, null]);
     }
   };
 
   const onSecondaryPathChange = (pathId: RunePathId) => {
     if (pathId === primaryPathId) return;
     setSecondaryPathId(pathId);
-    setSecondarySelections([null, null]);
+    setSecondarySelections([null, null, null]);
   };
 
   const currentSummary = [
@@ -382,8 +393,53 @@ export function RuneSimulator({
         : preset.secondaryPathId
     );
     setPrimarySelections(preset.primarySelections?.length === 4 ? preset.primarySelections : [null, null, null, null]);
-    setSecondarySelections(preset.secondarySelections?.length === 2 ? preset.secondarySelections : [null, null]);
+    setSecondarySelections(
+      preset.secondarySelections?.length === 3
+        ? preset.secondarySelections
+        : preset.secondarySelections?.length === 2
+          ? [preset.secondarySelections[0], preset.secondarySelections[1], null]
+          : [null, null, null]
+    );
     setShardSelections(preset.shardSelections?.length === 3 ? preset.shardSelections : [null, null, null]);
+  };
+
+  const applyRecommendedSetup = () => {
+    if (!recommendedSetup?.primary_runes?.length) {
+      setNotice('暂无可应用的 OP.GG 符文');
+      return;
+    }
+
+    const matchPrimaryPath = RUNE_PATHS.find((path) =>
+      recommendedSetup.primary_runes.every((rune) => path.slots.some((slot) => slot.includes(rune)))
+    );
+    if (!matchPrimaryPath) {
+      setNotice('无法匹配 OP.GG 主系符文');
+      return;
+    }
+
+    const primaryNext: (string | null)[] = [null, null, null, null];
+    for (const rune of recommendedSetup.primary_runes) {
+      const slotIdx = matchPrimaryPath.slots.findIndex((slot) => slot.includes(rune));
+      if (slotIdx >= 0) primaryNext[slotIdx] = rune;
+    }
+
+    const secondaryCandidatePaths = RUNE_PATHS.filter((path) => path.id !== matchPrimaryPath.id);
+    const matchSecondaryPath =
+      secondaryCandidatePaths.find((path) =>
+        recommendedSetup.secondary_runes.every((rune) => path.slots.slice(1).some((slot) => slot.includes(rune)))
+      ) ?? secondaryCandidatePaths[0];
+
+    const secondaryNext: (string | null)[] = [null, null, null];
+    for (const rune of recommendedSetup.secondary_runes.slice(0, 2)) {
+      const rowIdx = matchSecondaryPath.slots.slice(1).findIndex((slot) => slot.includes(rune));
+      if (rowIdx >= 0) secondaryNext[rowIdx] = rune;
+    }
+
+    setPrimaryPathId(matchPrimaryPath.id);
+    setSecondaryPathId(matchSecondaryPath.id);
+    setPrimarySelections(primaryNext);
+    setSecondarySelections(secondaryNext);
+    setNotice('已套用 OP.GG 符文推荐');
   };
 
   const savePreset = () => {
@@ -556,6 +612,15 @@ export function RuneSimulator({
         >
           {isFetchingRuneInfo ? '更新中...' : 'Fetch 符文更新'}
         </button>
+        {recommendedSetup?.primary_runes?.length ? (
+          <button
+            type="button"
+            onClick={applyRecommendedSetup}
+            className="px-3 py-2 rounded-lg bg-purple-700 text-white hover:bg-purple-600 text-sm"
+          >
+            应用 OP.GG 符文
+          </button>
+        ) : null}
         <button
           type="button"
           onClick={copySummary}
@@ -653,6 +718,7 @@ export function RuneSimulator({
 
         <div className="bg-gray-700 rounded-lg p-4 space-y-4">
           <label className="text-sm text-gray-300">副系</label>
+          <p className="text-xs text-gray-400">从 3 行中最多选择 2 个</p>
           <select
             aria-label="secondary-path"
             value={secondaryPathId}
@@ -684,7 +750,16 @@ export function RuneSimulator({
                     activeClass="bg-cyan-400 text-black"
                     onClick={() => {
                       setSecondarySelections((prev) => {
+                        const selectedCount = prev.filter(Boolean).length;
                         const next = [...prev];
+                        if (next[slotIndex] === rune) {
+                          next[slotIndex] = null;
+                          return next;
+                        }
+                        if (!next[slotIndex] && selectedCount >= 2) {
+                          setNotice('副系最多选择 2 个符文');
+                          return prev;
+                        }
                         next[slotIndex] = rune;
                         return next;
                       });

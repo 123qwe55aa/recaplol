@@ -41,6 +41,11 @@ class MatchupList(BaseModel):
     countered_by: List[ChampionCounter] = Field(default_factory=list)  # Champions this champ beats (该英雄克制)
 
 
+class RuneSetup(BaseModel):
+    primary_runes: List[str] = Field(default_factory=list)
+    secondary_runes: List[str] = Field(default_factory=list)
+
+
 class SummonerSpellOption(BaseModel):
     id: str
     name: str
@@ -66,6 +71,7 @@ class ChampionBuild(BaseModel):
     items: Dict[str, List[Dict[str, Any]]] = Field(default_factory=dict)
     skills: List[str] = Field(default_factory=list)
     runes: List[Dict[str, Any]] = Field(default_factory=list)
+    rune_setup: Optional[RuneSetup] = None
     matchups: MatchupList = Field(default_factory=MatchupList)
     synergies: List[ChampionSynergy] = Field(default_factory=list)
     last_updated: datetime

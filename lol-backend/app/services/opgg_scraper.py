@@ -493,6 +493,7 @@ class OPGGScraper:
             "items": {"start": [], "core": [], "final": []},
             "skills": [],
             "runes": [],
+            "rune_setup": None,
             "matchups": {"counters": [], "countered_by": []},
             "synergies": [],
             "last_updated": datetime.now().isoformat(),
@@ -648,6 +649,16 @@ class OPGGScraper:
             if rune_name and rune_name not in [r["name"] for r in runes]:
                 runes.append({"name": rune_name.strip()})
         result["runes"] = runes
+
+        # Build a structured rune setup for downstream simulator usage.
+        rune_names = [r.get("name", "").strip() for r in runes if r.get("name")]
+        if len(rune_names) >= 4:
+            primary = rune_names[:4]
+            secondary = rune_names[4:6]
+            result["rune_setup"] = {
+                "primary_runes": primary,
+                "secondary_runes": secondary,
+            }
 
         # Parse role/build info
         role_selectors = [".role-badge", ".position", '[class*="role"]', '[class*="position"]']

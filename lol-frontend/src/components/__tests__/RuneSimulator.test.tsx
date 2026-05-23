@@ -30,6 +30,36 @@ describe('RuneSimulator', () => {
     expect(secondarySelect.value).not.toBe('domination');
   });
 
+  it('limits secondary runes to at most two selections', () => {
+    render(<RuneSimulator recommendedRunes={[]} />);
+
+    fireEvent.click(screen.getByRole('button', { name: '恶意中伤' }));
+    fireEvent.click(screen.getByRole('button', { name: '幽灵魄罗' }));
+    fireEvent.click(screen.getByRole('button', { name: '贪欲猎手' }));
+
+    const summary = screen.getByText('当前符文页').parentElement;
+    expect(summary).toHaveTextContent('恶意中伤 / 幽灵魄罗');
+    expect(summary).not.toHaveTextContent('贪欲猎手');
+    expect(screen.getByText('副系最多选择 2 个符文')).toBeInTheDocument();
+  });
+
+  it('applies recommended OP.GG rune setup', () => {
+    render(
+      <RuneSimulator
+        recommendedRunes={[]}
+        recommendedSetup={{
+          primary_runes: ['征服者', '气定神闲', '传说：欢欣', '致命一击'],
+          secondary_runes: ['恶意中伤', '幽灵魄罗'],
+        }}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: '应用 OP.GG 符文' }));
+    const summary = screen.getByText('当前符文页').parentElement;
+    expect(summary).toHaveTextContent('征服者 / 气定神闲 / 传说：欢欣 / 致命一击');
+    expect(summary).toHaveTextContent('恶意中伤 / 幽灵魄罗');
+  });
+
   it('updates summary after selecting runes and shards', () => {
     render(<RuneSimulator recommendedRunes={[]} />);
 

@@ -94,6 +94,10 @@ export interface OpggBuild {
   };
   skills: string[];
   runes: { name: string }[];
+  rune_setup?: {
+    primary_runes: string[];
+    secondary_runes: string[];
+  } | null;
   matchups: OpggMatchups;
   synergies: OpggSynergy[];
   last_updated: string;

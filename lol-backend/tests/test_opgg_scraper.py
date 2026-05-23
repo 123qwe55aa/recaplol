@@ -31,6 +31,20 @@ SAMPLE_BUILD_PAGE_HTML = """
 </html>
 """
 
+SAMPLE_BUILD_PAGE_WITH_FULL_RUNES_HTML = """
+<html>
+<body>
+    <div class="champion-stats-trend-rate">52.34%</div>
+    <img class="rune-image" alt="Conqueror" />
+    <img class="rune-image" alt="Triumph" />
+    <img class="rune-image" alt="Legend: Alacrity" />
+    <img class="rune-image" alt="Coup de Grace" />
+    <img class="rune-image" alt="Taste of Blood" />
+    <img class="rune-image" alt="Treasure Hunter" />
+</body>
+</html>
+"""
+
 SAMPLE_VS_PAGE_HTML = """
 <html>
 <body>
@@ -216,6 +230,14 @@ class TestOPGGScraper:
         assert result["pick_rate"] is None
         assert result["games_played"] is None
         assert result["items"]["core"] == []
+
+    def test_parse_build_page_extracts_structured_rune_setup(self, scraper, filters):
+        """Test parse_build_page extracts primary/secondary rune setup from OP.GG rune order."""
+        result = scraper._parse_build_page(SAMPLE_BUILD_PAGE_WITH_FULL_RUNES_HTML, filters)
+        assert result["rune_setup"] == {
+            "primary_runes": ["Conqueror", "Triumph", "Legend: Alacrity", "Coup de Grace"],
+            "secondary_runes": ["Taste of Blood", "Treasure Hunter"],
+        }
 
     def test_parse_vs_page(self, scraper, filters):
         """Test parsing VS (counter matchups) page."""
