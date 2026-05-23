@@ -25,6 +25,7 @@ const MATCH_SYNC_TIMEOUT_MS = 60000;
 const AI_MATCH_RECAP_TIMEOUT_MS = 600000;
 const AI_COACH_REPORT_TIMEOUT_MS = 600000;
 const AI_COACH_CHAT_TIMEOUT_MS = 600000;
+const DDRAGON_VERSIONS_URL = 'https://ddragon.leagueoflegends.com/api/versions.json';
 
 // API response types (snake_case from backend)
 interface ApiPlayerResponse {
@@ -447,4 +448,9 @@ export const sendCoachQuestion = async (
     { timeout: AI_COACH_CHAT_TIMEOUT_MS }
   );
   return data;
+};
+
+export const getLatestLolVersion = async (): Promise<string> => {
+  const { data } = await api.get<string[]>(DDRAGON_VERSIONS_URL);
+  return data[0] ?? '';
 };

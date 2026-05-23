@@ -100,4 +100,19 @@ describe('api service', () => {
       }
     );
   });
+
+  it('fetches the latest League of Legends Data Dragon version', async () => {
+    axiosMocks.get.mockResolvedValue({ data: ['26.10.1', '26.9.1'] });
+    axiosMocks.create.mockReturnValue({
+      get: axiosMocks.get,
+      post: axiosMocks.post,
+    });
+
+    const { getLatestLolVersion } = await import('../api');
+
+    await expect(getLatestLolVersion()).resolves.toBe('26.10.1');
+    expect(axiosMocks.get).toHaveBeenCalledWith(
+      'https://ddragon.leagueoflegends.com/api/versions.json'
+    );
+  });
 });
