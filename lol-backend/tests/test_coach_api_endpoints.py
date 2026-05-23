@@ -317,3 +317,50 @@ def test_chat_uses_latest_report(app):
 
     assert response.status_code == 200
     assert response.json()["answer"] == "Answering: What first?"
+
+
+def test_chat_backfills_latest_patch_note_when_report_context_missing_it(app):
+    captured = {}
+
+    class RecordingProvider(FakeProvider):
+        async def answer_question(self, report, context, question):
+            captured["context"] = context
+            return await super().answer_question(report, context, question)
+
+    patch_record = type(
+        "Patch",
+        (),
+        {
+            "version": "26.10",
+            "title": "《英雄聯盟》26.10版本更新公告",
+            "url": "https://www.leagueoflegends.com/zh-tw/news/game-updates/league-of-legends-patch-26-10-notes/",
+            "published_at": "2026-05-12T18:00:00.000Z",
+            "summary": "26.10版本登場，群魔繼續亂舞！",
+            "overview": "我們針對近期第二賽季的改動做了一些後續調整。",
+            "analysis_json": {
+                "headline": "26.10 版本重點解析",
+                "sections": ["版本概要", "英雄", "道具"],
+                "takeaways": ["英雄：安比薩獲得上路和打野方向調整。"],
+            },
+        },
+    )()
+
+    repo = AsyncMock()
+    repo.get_latest_by_puuid = AsyncMock(return_value=make_report())
+    patch_repo = AsyncMock()
+    patch_repo.get_latest = AsyncMock(return_value=patch_record)
+    app.dependency_overrides[coach.get_coach_report_repository] = lambda: repo
+    app.dependency_overrides[coach.get_patch_notes_repository] = lambda: patch_repo
+    app.dependency_overrides[coach.get_ai_provider_dependency] = lambda: RecordingProvider()
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/coach/players/test-puuid/chat", json={"question": "这个版本增强了什么？"}
+        )
+
+    assert response.status_code == 200
+    assert captured["context"]["patch_note"]["version"] == "26.10"
+    assert (
+        captured["context"]["patch_note"]["analysis"]["headline"]
+        == "26.10 版本重點解析"
+    )

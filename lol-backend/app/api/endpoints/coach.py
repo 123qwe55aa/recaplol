@@ -157,15 +157,30 @@ async def chat_about_report(
     request: CoachChatRequest,
     repo: CoachReportRepository = Depends(get_coach_report_repository),
     provider: AIProvider = Depends(get_ai_provider_dependency),
+    patch_repo: PatchNoteAnnouncementRepository = Depends(get_patch_notes_repository),
 ):
     report = await repo.get_latest_by_puuid(puuid)
     if not report:
         raise HTTPException(status_code=404, detail="No coach report found")
 
+    context = dict(report.context_json or {})
+    if not context.get("patch_note"):
+        latest_patch = await patch_repo.get_latest()
+        if latest_patch:
+            context["patch_note"] = {
+                "version": latest_patch.version,
+                "title": latest_patch.title,
+                "url": latest_patch.url,
+                "published_at": latest_patch.published_at,
+                "summary": latest_patch.summary,
+                "overview": latest_patch.overview,
+                "analysis": latest_patch.analysis_json,
+            }
+
     try:
         answer = await provider.answer_question(
             report=report.report_json,
-            context=report.context_json,
+            context=context,
             question=request.question,
         )
     except AIProviderError as exc:
