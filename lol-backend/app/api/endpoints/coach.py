@@ -14,6 +14,7 @@ from app.core.config import settings
 from app.db.database import get_db
 from app.models.coach import CoachReport
 from app.repositories.coach import CoachMatchRecapRepository, CoachReportRepository
+from app.repositories.patch_notes import PatchNoteAnnouncementRepository
 from app.repositories.match import (
     MatchParticipantRepository,
     MatchRepository,
@@ -35,8 +36,10 @@ from app.services.coach_context_builder import (
 )
 from app.services.coach_rule_engine import score_context
 from app.services.match_timeline_analyzer import build_match_recap
+from app.services.patch_notes import PatchNotesService
 
 router = APIRouter(prefix="/coach", tags=["coach"])
+_patch_notes_service = PatchNotesService()
 
 
 def get_context_builder(db: AsyncSession = Depends(get_db)) -> CoachContextBuilder:
@@ -65,6 +68,16 @@ def get_match_timeline_repository(
     return MatchTimelineRepository(db)
 
 
+def get_patch_notes_repository(
+    db: AsyncSession = Depends(get_db),
+) -> PatchNoteAnnouncementRepository:
+    return PatchNoteAnnouncementRepository(db)
+
+
+def get_patch_notes_service() -> PatchNotesService:
+    return _patch_notes_service
+
+
 @router.get("/players/{puuid}/report", response_model=CoachReportResponse)
 async def get_latest_report(
     puuid: str,
@@ -89,9 +102,17 @@ async def generate_report(
     builder: CoachContextBuilder = Depends(get_context_builder),
     repo: CoachReportRepository = Depends(get_coach_report_repository),
     provider: AIProvider = Depends(get_ai_provider_dependency),
+    patch_repo: PatchNoteAnnouncementRepository = Depends(get_patch_notes_repository),
+    patch_service: PatchNotesService = Depends(get_patch_notes_service),
 ):
     request = request or CoachGenerateRequest()
     match_limit = request.match_limit or settings.coach_default_match_limit
+    try:
+        latest_patch = await patch_service.fetch_latest()
+        await patch_repo.upsert_latest(latest_patch)
+    except Exception:
+        # Patch note refresh should not block coach report generation.
+        pass
     context = await builder.build_context(puuid, match_limit=match_limit)
     fingerprint = context.get("data_fingerprint")
     if not fingerprint:

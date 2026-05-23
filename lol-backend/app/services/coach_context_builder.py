@@ -10,6 +10,7 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.repositories.match import MatchParticipantRepository, MatchRepository
+from app.repositories.patch_notes import PatchNoteAnnouncementRepository
 from app.repositories.player import ChampionMasteryRepository, PlayerRepository
 from app.services.match_timeline_analyzer import build_role_profile
 
@@ -23,6 +24,7 @@ class CoachContextBuilder:
         self.match_repo = MatchRepository(session)
         self.participant_repo = MatchParticipantRepository(session)
         self.mastery_repo = ChampionMasteryRepository(session)
+        self.patch_note_repo = PatchNoteAnnouncementRepository(session)
 
     async def build_context(self, puuid: str, match_limit: int = 20) -> dict:
         player = await self.player_repo.get_by_puuid(puuid)
@@ -166,6 +168,7 @@ class CoachContextBuilder:
             key=lambda item: (-item["games"], str(item.get("champion_name") or "")),
         )
         primary_role = role_counts.most_common(1)[0][0] if role_counts else None
+        patch_note = await self.patch_note_repo.get_latest()
         context = {
             "player": _player_dict(player, puuid),
             "recent_match_ids": list(recent_match_ids),
@@ -176,6 +179,7 @@ class CoachContextBuilder:
             "champion_masteries": [_mastery_dict(mastery) for mastery in masteries],
             "averages": averages,
             "lane_opponent_comparison": lane_opponent_comparison,
+            "patch_note": _patch_note_dict(patch_note),
             "win_rate": round(wins / known_results, 2) if known_results else None,
             "matches": rows,
         }
@@ -283,6 +287,7 @@ def _fingerprint(context: dict) -> str:
         "match_count": context.get("match_count"),
         "averages": context.get("averages"),
         "lane_opponent_comparison": context.get("lane_opponent_comparison"),
+        "patch_note": context.get("patch_note"),
         "win_rate": context.get("win_rate"),
         "matches": context.get("matches"),
     }
@@ -311,6 +316,20 @@ def _mastery_dict(mastery: Any) -> dict:
         "champion_id": _get(mastery, "champion_id"),
         "champion_level": _get(mastery, "champion_level"),
         "champion_points": _get(mastery, "champion_points"),
+    }
+
+
+def _patch_note_dict(note: Any) -> dict | None:
+    if not note:
+        return None
+    return {
+        "version": _get(note, "version"),
+        "title": _get(note, "title"),
+        "url": _get(note, "url"),
+        "published_at": _get(note, "published_at"),
+        "summary": _get(note, "summary"),
+        "overview": _get(note, "overview"),
+        "analysis": _get(note, "analysis_json") or {},
     }
 
 

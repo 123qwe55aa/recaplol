@@ -183,29 +183,51 @@ async def test_build_context_aggregates_player_recent_matches_and_fingerprint():
                 with patch(
                     "app.services.coach_context_builder.ChampionMasteryRepository"
                 ) as mastery_repo:
-                    player_repo.return_value.get_by_puuid = AsyncMock(return_value=player)
-                    match_repo.return_value.get_recent_matches = AsyncMock(
-                        return_value=match_ids
-                    )
-                    match_repo.return_value.get_by_match_id = AsyncMock(
-                        side_effect=lambda match_id: matches[match_id]
-                    )
-                    participant_repo.return_value.get_participant = AsyncMock(
-                        side_effect=lambda match_id, puuid: participants[match_id]
-                    )
-                    participant_repo.return_value.get_participants_by_match = AsyncMock(
-                        side_effect=lambda match_id: match_participants[match_id]
-                    )
-                    mastery_repo.return_value.get_by_puuid = AsyncMock(
-                        return_value=masteries
-                    )
+                    with patch(
+                        "app.services.coach_context_builder.PatchNoteAnnouncementRepository"
+                    ) as patch_repo:
+                        player_repo.return_value.get_by_puuid = AsyncMock(return_value=player)
+                        match_repo.return_value.get_recent_matches = AsyncMock(
+                            return_value=match_ids
+                        )
+                        match_repo.return_value.get_by_match_id = AsyncMock(
+                            side_effect=lambda match_id: matches[match_id]
+                        )
+                        participant_repo.return_value.get_participant = AsyncMock(
+                            side_effect=lambda match_id, puuid: participants[match_id]
+                        )
+                        participant_repo.return_value.get_participants_by_match = AsyncMock(
+                            side_effect=lambda match_id: match_participants[match_id]
+                        )
+                        mastery_repo.return_value.get_by_puuid = AsyncMock(
+                            return_value=masteries
+                        )
+                        patch_repo.return_value.get_latest = AsyncMock(
+                            return_value=type(
+                                "Patch",
+                                (),
+                                {
+                                    "version": "26.10",
+                                    "title": "《英雄聯盟》26.10版本更新公告",
+                                    "url": "https://www.leagueoflegends.com/zh-tw/news/game-updates/league-of-legends-patch-26-10-notes/",
+                                    "published_at": "2026-05-12T18:00:00.000Z",
+                                    "summary": "26.10版本登場，群魔繼續亂舞！",
+                                    "overview": "我們針對近期第二賽季的改動做了一些後續調整。",
+                                    "analysis_json": {
+                                        "headline": "26.10 版本重點解析",
+                                        "sections": ["版本概要", "英雄"],
+                                        "takeaways": ["英雄：安比薩獲得上路和打野方向調整。"],
+                                    },
+                                },
+                            )()
+                        )
 
-                    context = await CoachContextBuilder(session).build_context(
-                        "puuid-1", match_limit=3
-                    )
-                    duplicate = await CoachContextBuilder(session).build_context(
-                        "puuid-1", match_limit=3
-                    )
+                        context = await CoachContextBuilder(session).build_context(
+                            "puuid-1", match_limit=3
+                        )
+                        duplicate = await CoachContextBuilder(session).build_context(
+                            "puuid-1", match_limit=3
+                        )
 
     assert context["player"]["puuid"] == "puuid-1"
     assert context["player"]["summoner_name"] == "CoachMe"
@@ -241,4 +263,6 @@ async def test_build_context_aggregates_player_recent_matches_and_fingerprint():
     assert context["lane_opponent_comparison"]["player"]["cs_per_minute"] == 6.63
     assert context["lane_opponent_comparison"]["opponent"]["cs_per_minute"] == 6.37
     assert context["lane_opponent_comparison"]["delta"]["gold_earned"] == 233.33
+    assert context["patch_note"]["version"] == "26.10"
+    assert context["patch_note"]["analysis"]["headline"] == "26.10 版本重點解析"
     assert context["data_fingerprint"] == duplicate["data_fingerprint"]
