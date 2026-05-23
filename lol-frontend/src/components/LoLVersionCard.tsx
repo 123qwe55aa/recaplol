@@ -1,6 +1,6 @@
 import { useLolVersion } from '../hooks/useLolVersion';
 
-const PATCH_NOTES_URL = 'https://www.leagueoflegends.com/news/tags/patch-notes/';
+const PATCH_NOTES_URL = 'https://www.leagueoflegends.com/zh-tw/news/tags/patch-notes/';
 
 export function LoLVersionCard() {
   const { data: version, isLoading, error } = useLolVersion();
@@ -22,8 +22,8 @@ export function LoLVersionCard() {
           </div>
           <p className="mt-2 text-sm text-gray-400">
             {error
-              ? '版本服务暂时不可用，可直接查看 Riot 官方更新页。'
-              : '根据 Riot Data Dragon 最新版本列表同步。'}
+              ? '版本服务暂时不可用，可直接查看台服官方更新页。'
+              : '根据 Riot Data Dragon 全局版本列表同步（非分区服）。'}
           </p>
         </div>
         <a
@@ -32,7 +32,7 @@ export function LoLVersionCard() {
           rel="noreferrer"
           className="inline-flex shrink-0 items-center justify-center rounded-lg bg-yellow-500 px-4 py-2 font-bold text-black transition-colors hover:bg-yellow-400"
         >
-          查看官方版本更新
+          查看台服版本更新
         </a>
       </div>
     </section>
