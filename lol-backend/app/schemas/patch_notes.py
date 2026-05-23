@@ -7,6 +7,7 @@ class PatchNoteAnalysis(BaseModel):
     headline: str
     sections: list[str] = Field(default_factory=list)
     takeaways: list[str] = Field(default_factory=list)
+    details: dict[str, list[str]] = Field(default_factory=dict)
 
 
 class PatchNoteAnnouncement(BaseModel):

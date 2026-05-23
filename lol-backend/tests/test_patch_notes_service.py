@@ -75,6 +75,9 @@ def test_parse_patch_note_article_builds_announcement_analysis():
     assert announcement["analysis"]["headline"] == "26.10 版本重點解析"
     assert "版本概要" in announcement["analysis"]["sections"]
     assert "英雄" in announcement["analysis"]["sections"]
+    assert "details" in announcement["analysis"]
+    assert "英雄" in announcement["analysis"]["details"]
+    assert any("安比薩" in item for item in announcement["analysis"]["details"]["英雄"])
     hero_takeaway = next(
         item for item in announcement["analysis"]["takeaways"] if item.startswith("英雄 安比薩：")
     )

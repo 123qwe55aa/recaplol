@@ -19,6 +19,10 @@ def test_get_latest_patch_note_returns_service_payload(monkeypatch):
                 "headline": "26.10 版本重點解析",
                 "sections": ["版本概要", "英雄", "道具"],
                 "takeaways": ["英雄：安比薩獲得上路和打野方向調整。"],
+                "details": {
+                    "英雄": ["安比薩：目標最大生命傷害：2 / 3 / 4 / 5 / 6% ⇒ 4 / 4.5 / 5 / 5.5 / 6%"],
+                    "道具": ["多蘭之盔：生命 ：110 ⇒ 140"],
+                },
             },
         }
 
@@ -34,6 +38,10 @@ def test_get_latest_patch_note_returns_service_payload(monkeypatch):
             "headline": "26.10 版本重點解析",
             "sections": ["版本概要", "英雄", "道具"],
             "takeaways": ["英雄：安比薩獲得上路和打野方向調整。"],
+            "details": {
+                "英雄": ["安比薩：目標最大生命傷害：2 / 3 / 4 / 5 / 6% ⇒ 4 / 4.5 / 5 / 5.5 / 6%"],
+                "道具": ["多蘭之盔：生命 ：110 ⇒ 140"],
+            },
         },
     })()
 
@@ -53,4 +61,5 @@ def test_get_latest_patch_note_returns_service_payload(monkeypatch):
     assert response.status_code == 200
     assert response.json()["version"] == "26.10"
     assert response.json()["analysis"]["sections"] == ["版本概要", "英雄", "道具"]
+    assert "安比薩" in response.json()["analysis"]["details"]["英雄"][0]
     app.dependency_overrides.clear()

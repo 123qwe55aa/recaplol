@@ -72,6 +72,7 @@ class PatchNotesService:
         version = str(latest.get("version") or self._extract_version(title))
         sections = self._extract_sections(article)
         takeaways = self._extract_takeaways(article, sections)
+        details = self._extract_details(article, sections)
 
         return {
             "version": version,
@@ -84,6 +85,7 @@ class PatchNotesService:
                 "headline": f"{version} 版本重點解析",
                 "sections": sections[:6],
                 "takeaways": takeaways[:5],
+                "details": details,
             },
         }
 
@@ -215,6 +217,63 @@ class PatchNotesService:
             if fallback:
                 results.append(f"{section_title}：{fallback}")
         return results[:2]
+
+    def _extract_details(self, article: Tag, sections: list[str]) -> dict[str, list[str]]:
+        details: dict[str, list[str]] = {}
+        section_nodes = article.find_all("h2")
+        for section_node in section_nodes:
+            section_title = _clean_text(section_node.get_text(" ", strip=True))
+            if not section_title:
+                continue
+            items = self._extract_section_details(section_node)
+            if items:
+                details[section_title] = items[:20]
+
+        # Ensure surfaced sections always exist in details when possible.
+        for section_title in sections:
+            details.setdefault(section_title, [])
+        return details
+
+    def _extract_section_details(self, section_h2: Tag) -> list[str]:
+        results: list[str] = []
+        next_h2 = section_h2.find_next("h2")
+        current_subject = ""
+
+        for node in section_h2.next_elements:
+            if node is section_h2:
+                continue
+            if next_h2 and node is next_h2:
+                break
+            if not isinstance(node, Tag):
+                continue
+
+            if node.name == "h3":
+                current_subject = _clean_text(node.get_text(" ", strip=True))
+                continue
+
+            if node.name == "li":
+                text = _clean_text(node.get_text(" ", strip=True))
+                if not text:
+                    continue
+                if current_subject:
+                    results.append(f"{current_subject}：{_truncate(text, 120)}")
+                else:
+                    results.append(_truncate(text, 120))
+                continue
+
+            if node.name in {"p", "blockquote"} and not results:
+                text = _clean_text(node.get_text(" ", strip=True))
+                if text:
+                    results.append(_truncate(text, 120))
+
+        # Deduplicate while keeping order.
+        unique: list[str] = []
+        seen: set[str] = set()
+        for item in results:
+            if item not in seen:
+                seen.add(item)
+                unique.append(item)
+        return unique
 
     def _first_meaningful_text_after_heading(
         self, heading: Tag, section_set: set[str]

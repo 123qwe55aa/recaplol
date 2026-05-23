@@ -231,6 +231,7 @@ export interface PatchNoteAnnouncement {
     headline: string;
     sections: string[];
     takeaways: string[];
+    details: Record<string, string[]>;
   };
 }
 

@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { LoLPatchAnnouncementCard } from '../LoLPatchAnnouncementCard';
 
@@ -22,6 +22,10 @@ describe('LoLPatchAnnouncementCard', () => {
           headline: '26.10 版本重點解析',
           sections: ['版本概要', '英雄', '道具'],
           takeaways: ['英雄：安比薩獲得上路和打野方向調整。'],
+          details: {
+            英雄: ['安比薩：目標最大生命傷害：2 / 3 / 4 / 5 / 6% ⇒ 4 / 4.5 / 5 / 5.5 / 6%'],
+            道具: ['多蘭之盔：生命 ：110 ⇒ 140'],
+          },
         },
       },
       isLoading: false,
@@ -38,6 +42,11 @@ describe('LoLPatchAnnouncementCard', () => {
       'href',
       'https://www.leagueoflegends.com/zh-tw/news/game-updates/league-of-legends-patch-26-10-notes/'
     );
+    expect(screen.queryByText('安比薩：目標最大生命傷害：2 / 3 / 4 / 5 / 6% ⇒ 4 / 4.5 / 5 / 5.5 / 6%')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '展开完整版本清单' }));
+    expect(screen.getByText(/安比薩：目標最大生命傷害：2 \/ 3 \/ 4 \/ 5 \/ 6% ⇒ 4 \/ 4\.5 \/ 5 \/ 5\.5 \/ 6%/)).toBeInTheDocument();
+    expect(screen.getByText(/多蘭之盔：生命 ：110 ⇒ 140/)).toBeInTheDocument();
   });
 
   it('renders a loading state', () => {
