@@ -1,6 +1,7 @@
 import type { Player } from '../types';
 import { RankBadge } from './RankBadge';
 import { ChampionPortrait } from './ChampionPortrait';
+import { RuneSimulator } from './RuneSimulator';
 
 interface PlayerCardProps {
   player: Player;
@@ -54,6 +55,10 @@ export function PlayerCard({ player }: PlayerCardProps) {
           </div>
         </div>
       )}
+
+      <div className="mt-6">
+        <RuneSimulator recommendedRunes={[]} />
+      </div>
     </div>
   );
 }

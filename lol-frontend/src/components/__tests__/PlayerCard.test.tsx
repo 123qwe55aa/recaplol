@@ -72,4 +72,9 @@ describe('PlayerCard', () => {
     expect(screen.getByText('Gold II')).toBeInTheDocument();
     expect(screen.getByText('75 LP')).toBeInTheDocument();
   });
+
+  it('renders rune simulator inside player card', () => {
+    render(<PlayerCard player={mockPlayer} />);
+    expect(screen.getByText('符文模拟器')).toBeInTheDocument();
+  });
 });
