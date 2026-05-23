@@ -11,6 +11,7 @@ from bs4 import BeautifulSoup, Tag
 
 PATCH_NOTES_INDEX_URL = "https://www.leagueoflegends.com/zh-tw/news/tags/patch-notes/"
 PATCH_NOTE_BASE_URL = "https://www.leagueoflegends.com"
+PREVIEW_SECTION_PRIORITY = ("英雄", "道具", "符文", "系統", "系統調整", "版本概要")
 
 
 class PatchNotesError(Exception):
@@ -131,15 +132,89 @@ class PatchNotesService:
 
     def _extract_takeaways(self, article: Tag, sections: list[str]) -> list[str]:
         takeaways: list[str] = []
-        section_set = set(sections)
-        for heading in article.find_all(["h2", "h3"]):
-            title = _clean_text(heading.get_text(" ", strip=True))
-            if not title:
+        used: set[str] = set()
+        section_nodes = article.find_all("h2")
+        prioritized = sorted(
+            section_nodes,
+            key=lambda node: _section_priority(_clean_text(node.get_text(" ", strip=True))),
+        )
+
+        for section in prioritized:
+            section_title = _clean_text(section.get_text(" ", strip=True))
+            if not section_title:
                 continue
-            body = self._first_meaningful_text_after_heading(heading, section_set)
-            if body:
-                takeaways.append(f"{title}：{body}")
+            for item in self._extract_section_takeaways(section, section_title):
+                normalized = _clean_text(item)
+                if normalized and normalized not in used:
+                    used.add(normalized)
+                    takeaways.append(normalized)
+                if len(takeaways) >= 8:
+                    return takeaways
         return takeaways
+
+    def _extract_section_takeaways(self, section_h2: Tag, section_title: str) -> list[str]:
+        results: list[str] = []
+        subjects: list[str] = []
+        per_subject: dict[str, list[str]] = {}
+        overview_fallback = ""
+        general_fallback = ""
+        next_h2 = section_h2.find_next("h2")
+        current_subject = ""
+
+        for node in section_h2.next_elements:
+            if node is section_h2:
+                continue
+            if next_h2 and node is next_h2:
+                break
+            if not isinstance(node, Tag):
+                continue
+
+            if node.name == "h3":
+                current_subject = _clean_text(node.get_text(" ", strip=True))
+                if current_subject and current_subject not in subjects:
+                    subjects.append(current_subject)
+                    per_subject[current_subject] = []
+                continue
+
+            if node.name == "li":
+                text = _clean_text(node.get_text(" ", strip=True))
+                if not text:
+                    continue
+                if current_subject:
+                    per_subject[current_subject].append(text)
+                elif not general_fallback:
+                    general_fallback = text
+                continue
+
+            if node.name in {"p", "blockquote"}:
+                text = _clean_text(node.get_text(" ", strip=True))
+                if not text:
+                    continue
+                if section_title == "版本概要" and not overview_fallback:
+                    overview_fallback = text
+                if current_subject and not per_subject.get(current_subject):
+                    per_subject[current_subject] = [text]
+                elif not general_fallback:
+                    general_fallback = text
+
+        for subject in subjects[:2]:
+            values = per_subject.get(subject) or []
+            best = next((value for value in values if _looks_like_balance_change(value)), None)
+            chosen = best or (values[0] if values else "")
+            if chosen:
+                results.append(
+                    f"{section_title} {subject}：{_truncate(_compact_preview_text(chosen), 48)}"
+                )
+
+        if not results and overview_fallback:
+            results.append(f"{section_title}：{_truncate(_compact_preview_text(overview_fallback), 48)}")
+        if not results and general_fallback:
+            results.append(f"{section_title}：{_truncate(_compact_preview_text(general_fallback), 48)}")
+        if not results:
+            fallback = self._first_meaningful_text_after_heading(section_h2, set())
+            if fallback:
+                results.append(f"{section_title}：{fallback}")
+        return results[:2]
 
     def _first_meaningful_text_after_heading(
         self, heading: Tag, section_set: set[str]
@@ -171,6 +246,32 @@ def _clean_text(value: str | None) -> str:
 
 def _truncate(value: str, limit: int = 120) -> str:
     return value if len(value) <= limit else f"{value[:limit].rstrip()}..."
+
+
+def _looks_like_balance_change(text: str) -> bool:
+    markers = ("⇒", "->", "→", "增加", "降低", "提升", "削弱", "Buff", "Nerf")
+    return any(marker in text for marker in markers)
+
+
+def _compact_preview_text(text: str) -> str:
+    value = _clean_text(text)
+    sentences = [item.strip() for item in re.split(r"[。！？]", value) if item.strip()]
+    if not sentences:
+        return value
+    for sentence in sentences:
+        if _looks_like_balance_change(sentence):
+            return sentence
+    for sentence in sentences:
+        if "：" in sentence and any(ch.isdigit() for ch in sentence):
+            return sentence
+    return sentences[0]
+
+
+def _section_priority(title: str) -> int:
+    for idx, key in enumerate(PREVIEW_SECTION_PRIORITY):
+        if key in title:
+            return idx
+    return len(PREVIEW_SECTION_PRIORITY)
 
 
 def _first_text(node: Tag, selectors: list[str]) -> str:

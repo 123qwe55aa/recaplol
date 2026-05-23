@@ -75,9 +75,11 @@ def test_parse_patch_note_article_builds_announcement_analysis():
     assert announcement["analysis"]["headline"] == "26.10 版本重點解析"
     assert "版本概要" in announcement["analysis"]["sections"]
     assert "英雄" in announcement["analysis"]["sections"]
-    assert announcement["analysis"]["takeaways"][0] == (
-        "版本概要：「牧雨歌僮 埃爾文」與「菁英計畫 葵恩」將於2026年5月13日登場。"
+    hero_takeaway = next(
+        item for item in announcement["analysis"]["takeaways"] if item.startswith("英雄 安比薩：")
     )
+    assert "⇒" in hero_takeaway
+    assert any(item.startswith("版本概要：") for item in announcement["analysis"]["takeaways"])
 
 
 @pytest.mark.asyncio
