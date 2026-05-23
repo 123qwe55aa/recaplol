@@ -258,6 +258,7 @@ function EntityIcon({ section, item }: { section: string; item: string }) {
 function normalizeEntityName(value: string) {
   return value
     .replace(/\s+/g, '')
+    .replace(/[\u{1F300}-\u{1FAFF}\u2600-\u27BF]/gu, '')
     .replace(/[•·,，。.!！?？()（）「」『』【】]/g, '')
     .replace(/^英雄/, '')
     .replace(/^道具/, '')
@@ -342,6 +343,7 @@ const CHAMPION_ICON_MAP: Record<string, string> = {
   茂凱: 'Maokai',
   易大師: 'MasterYi',
   魔甘娜: 'Morgana',
+  娜菲芮: 'Naafiri',
   娜米: 'Nami',
   納瑟斯: 'Nasus',
   納帝魯斯: 'Nautilus',
@@ -416,6 +418,7 @@ const ITEM_ICON_MAP: Record<string, string> = {
   死亡之帽: '3089',
   黎安卓的折磨: '6653',
   盧登回音: '6655',
+  巫妖之禍: '3100',
   時光之杖: '6657',
   虛空之杖: '3135',
 };
@@ -452,6 +455,7 @@ const ENTITY_ALIASES: Record<string, string> = {
   灭世者的死亡之帽: '死亡之帽',
   兰德里的折磨: '黎安卓的折磨',
   卢登的回声: '盧登回音',
+  巫妖之祸: '巫妖之禍',
   时光之杖: '時光之杖',
   虚空之杖: '虛空之杖',
   冥火之触: '冥火之觸',
@@ -461,6 +465,7 @@ const ENTITY_ALIASES: Record<string, string> = {
   相位猛冲: '相位衝擊',
   奥术彗星: '奧術彗星',
   安比萨: '安比薩',
+  娜菲芮: '娜菲芮',
   艾妮维亚: '艾妮維亞',
   加里奥: '加里歐',
   加里欧: '加里歐',
