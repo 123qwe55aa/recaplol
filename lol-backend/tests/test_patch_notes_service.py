@@ -3,6 +3,7 @@
 import pytest
 
 from app.services.patch_notes import PatchNotesService
+from app.services import patch_notes as patch_notes_module
 
 
 PATCH_INDEX_HTML = """
@@ -105,3 +106,64 @@ async def test_fetch_latest_uses_index_then_article(monkeypatch):
         "https://www.leagueoflegends.com/zh-tw/news/game-updates/league-of-legends-patch-26-10-notes/",
     ]
     assert announcement["title"] == "《英雄聯盟》26.10版本更新公告"
+
+
+@pytest.mark.asyncio
+async def test_fetch_latest_returns_cached_payload(monkeypatch):
+    service = PatchNotesService()
+    cached = {
+        "version": "26.10",
+        "title": "《英雄聯盟》26.10版本更新公告",
+        "url": "https://www.leagueoflegends.com/zh-tw/news/game-updates/league-of-legends-patch-26-10-notes/",
+        "published_at": "2026-05-12T18:00:00.000Z",
+        "summary": "26.10版本登場，群魔繼續亂舞！",
+        "overview": "cached",
+        "analysis": {"headline": "26.10 版本重點解析", "sections": [], "takeaways": [], "details": {}},
+    }
+
+    async def fake_get(_key: str):
+        return cached
+
+    async def fail_fetch(_url: str) -> str:
+        raise AssertionError("network fetch should not happen on cache hit")
+
+    monkeypatch.setattr(patch_notes_module.redis_client, "get", fake_get)
+    monkeypatch.setattr(service, "_fetch_html", fail_fetch)
+
+    announcement = await service.fetch_latest()
+
+    assert announcement == cached
+
+
+@pytest.mark.asyncio
+async def test_fetch_latest_writes_payload_to_cache(monkeypatch):
+    service = PatchNotesService()
+    calls = []
+    cache_writes = []
+
+    async def fake_fetch_html(url: str) -> str:
+        calls.append(url)
+        if url.endswith("/patch-notes/"):
+            return PATCH_INDEX_HTML
+        return PATCH_ARTICLE_HTML
+
+    async def fake_get(_key: str):
+        return None
+
+    async def fake_set(key: str, value, ttl=None):
+        cache_writes.append((key, value, ttl))
+        return True
+
+    monkeypatch.setattr(service, "_fetch_html", fake_fetch_html)
+    monkeypatch.setattr(patch_notes_module.redis_client, "get", fake_get)
+    monkeypatch.setattr(patch_notes_module.redis_client, "set", fake_set)
+
+    announcement = await service.fetch_latest()
+
+    assert calls == [
+        "https://www.leagueoflegends.com/zh-tw/news/tags/patch-notes/",
+        "https://www.leagueoflegends.com/zh-tw/news/game-updates/league-of-legends-patch-26-10-notes/",
+    ]
+    assert announcement["version"] == "26.10"
+    assert len(cache_writes) == 1
+    assert cache_writes[0][0] == "patch_notes:latest:zh-tw"

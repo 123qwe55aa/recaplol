@@ -8,10 +8,15 @@ from urllib.parse import urljoin
 
 import httpx
 from bs4 import BeautifulSoup, Tag
+from app.core.config import settings
+from app.core.logging import get_logger
+from app.db.redis import redis_client
 
 PATCH_NOTES_INDEX_URL = "https://www.leagueoflegends.com/zh-tw/news/tags/patch-notes/"
 PATCH_NOTE_BASE_URL = "https://www.leagueoflegends.com"
 PREVIEW_SECTION_PRIORITY = ("英雄", "道具", "符文", "系統", "系統調整", "版本概要")
+PATCH_NOTES_CACHE_KEY = "patch_notes:latest:zh-tw"
+logger = get_logger(__name__)
 
 
 class PatchNotesError(Exception):
@@ -22,11 +27,25 @@ class PatchNotesService:
     def __init__(self, timeout: float = 15.0):
         self.timeout = timeout
 
-    async def fetch_latest(self) -> dict[str, Any]:
+    async def fetch_latest(self, use_cache: bool = True) -> dict[str, Any]:
+        if use_cache:
+            cached = await redis_client.get(PATCH_NOTES_CACHE_KEY)
+            if isinstance(cached, dict) and cached.get("version") and cached.get("analysis"):
+                return cached
+
         index_html = await self._fetch_html(PATCH_NOTES_INDEX_URL)
         latest = self.parse_latest_patch_note_index(index_html)
         article_html = await self._fetch_html(latest["url"])
-        return self.parse_patch_note_article(article_html, latest)
+        parsed = self.parse_patch_note_article(article_html, latest)
+        if use_cache:
+            ok = await redis_client.set(
+                PATCH_NOTES_CACHE_KEY,
+                parsed,
+                ttl=settings.cache_ttl_patch_notes,
+            )
+            if not ok:
+                logger.warning("patch_notes_cache_set_failed", key=PATCH_NOTES_CACHE_KEY)
+        return parsed
 
     async def _fetch_html(self, url: str) -> str:
         headers = {

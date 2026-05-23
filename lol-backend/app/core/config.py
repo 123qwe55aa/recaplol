@@ -37,6 +37,7 @@ class Settings(BaseSettings):
     cache_ttl_match: int = 1800  # 30 minutes
     cache_ttl_stats: int = 900   # 15 minutes
     cache_ttl_analysis: int = 7200  # 2 hours
+    cache_ttl_patch_notes: int = 1800  # 30 minutes
 
     # OP.GG scraper settings
     opgg_enabled: bool = True  # Feature flag - set to False to disable
