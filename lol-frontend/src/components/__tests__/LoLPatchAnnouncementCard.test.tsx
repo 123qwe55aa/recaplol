@@ -24,8 +24,8 @@ describe('LoLPatchAnnouncementCard', () => {
           takeaways: ['英雄：安比薩獲得上路和打野方向調整。'],
           details: {
             英雄: ['安妮：Q 傷害提升', '安比薩：傷害提升', '安比薩：治療百分比提升', '艾希：W 傷害提升', '加里欧：Q 冷卻調整'],
-            道具: ['道具 多兰之盔：生命 ：110 ⇒ 140', '多蘭之盔：價格調整'],
-            符文: ['冥火之触：傷害降低', '冥火之觸：冷卻時間調整'],
+            道具: ['道具 多兰之盔：生命 ：110 ⇒ 140', '灭世者的死亡之帽：法強調整'],
+            符文: ['冥火之触：傷害降低', '相位猛冲：移速調整'],
           },
         },
       },
@@ -69,9 +69,17 @@ describe('LoLPatchAnnouncementCard', () => {
       'src',
       'https://ddragon.leagueoflegends.com/cdn/16.10.1/img/item/1120.png'
     );
+    expect(screen.getByAltText('灭世者的死亡之帽 图标')).toHaveAttribute(
+      'src',
+      'https://ddragon.leagueoflegends.com/cdn/16.10.1/img/item/3089.png'
+    );
     expect(screen.getByAltText('冥火之触 图标')).toHaveAttribute(
       'src',
       'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Sorcery/Scorch/Scorch.png'
+    );
+    expect(screen.getByAltText('相位猛冲 图标')).toHaveAttribute(
+      'src',
+      'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Sorcery/PhaseRush/PhaseRush.png'
     );
     expect(screen.getByText(/安妮：Q 傷害提升/)).toBeInTheDocument();
     expect(screen.getByText(/安比薩：傷害提升/)).toBeInTheDocument();
@@ -79,9 +87,9 @@ describe('LoLPatchAnnouncementCard', () => {
     expect(screen.getByText(/艾希：W 傷害提升/)).toBeInTheDocument();
     expect(screen.getByText(/加里欧：Q 冷卻調整/)).toBeInTheDocument();
     expect(screen.getByText(/道具 多兰之盔：生命 ：110 ⇒ 140/)).toBeInTheDocument();
-    expect(screen.getByText(/多蘭之盔：價格調整/)).toBeInTheDocument();
+    expect(screen.getByText(/灭世者的死亡之帽：法強調整/)).toBeInTheDocument();
     expect(screen.getByText(/冥火之触：傷害降低/)).toBeInTheDocument();
-    expect(screen.getByText(/冥火之觸：冷卻時間調整/)).toBeInTheDocument();
+    expect(screen.getByText(/相位猛冲：移速調整/)).toBeInTheDocument();
   });
 
   it('renders a loading state', () => {
