@@ -159,7 +159,7 @@ const RUNE_ICON_MAP: Record<string, string> = {
 };
 
 const buildInitialSelections = (slotCount: number): (string | null)[] =>
-  Array.from({ length: slotCount }, (_, idx) => null);
+  Array.from({ length: slotCount }, () => null);
 
 const RUNE_PRESET_STORAGE_KEY = 'lol_rune_simulator_presets_v2';
 
