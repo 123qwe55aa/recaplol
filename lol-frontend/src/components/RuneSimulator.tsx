@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 type RunePathId = 'precision' | 'domination' | 'sorcery' | 'resolve' | 'inspiration';
 
@@ -346,6 +346,16 @@ export function RuneSimulator({
   const [runeInfoMap, setRuneInfoMap] = useState<RuneInfoMap>({});
   const [focusedRuneName, setFocusedRuneName] = useState<string | null>(null);
   const [runeInfoVersion, setRuneInfoVersion] = useState<string | null>(null);
+  const didAutoExpandRef = useRef(false);
+
+  const hasRecommendedData =
+    (recommendedSetup?.primary_runes?.length ?? 0) > 0 || recommendedRunes.length > 0;
+
+  useEffect(() => {
+    if (!hasRecommendedData || didAutoExpandRef.current || !isCollapsed) return;
+    setIsCollapsed(false);
+    didAutoExpandRef.current = true;
+  }, [hasRecommendedData, isCollapsed]);
 
   const primaryPath = useMemo(
     () => RUNE_PATHS.find((path) => path.id === primaryPathId) ?? RUNE_PATHS[0],

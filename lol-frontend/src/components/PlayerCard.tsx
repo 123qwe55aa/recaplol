@@ -6,9 +6,10 @@ import { RuneSimulator } from './RuneSimulator';
 interface PlayerCardProps {
   player: Player;
   opggBuild?: OpggBuild | null;
+  opggStatusText?: string | null;
 }
 
-export function PlayerCard({ player, opggBuild = null }: PlayerCardProps) {
+export function PlayerCard({ player, opggBuild = null, opggStatusText = null }: PlayerCardProps) {
   const winRateColor = player.winRate >= 50 ? 'text-green-400' : 'text-red-400';
 
   return (
@@ -42,6 +43,9 @@ export function PlayerCard({ player, opggBuild = null }: PlayerCardProps) {
       </div>
 
       <div className="mt-6 pt-6 border-t border-gray-700">
+        {opggStatusText ? (
+          <p className="text-xs text-gray-400 mb-2">{opggStatusText}</p>
+        ) : null}
         <RuneSimulator
           recommendedRunes={opggBuild?.runes?.map((rune) => rune.name) ?? []}
           recommendedSetup={opggBuild?.rune_setup ?? null}

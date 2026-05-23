@@ -24,7 +24,11 @@ export function PlayerPage() {
   const { data: player, isLoading, error, refetch } = usePlayer(gameName!, tagLine!, !!gameName && !!tagLine);
   const { data: masteryData } = useChampionMastery(player?.puuid ?? '', !!player?.puuid);
   const primaryChampionName = masteryData?.champion_masteries?.[0]?.championName ?? '';
-  const { data: opggBuildResp } = useChampionBuild(
+  const {
+    data: opggBuildResp,
+    isLoading: isOpggBuildLoading,
+    isError: isOpggBuildError,
+  } = useChampionBuild(
     primaryChampionName,
     !!primaryChampionName,
     { region: 'kr', queue: 'RANKED_SOLO_5x5', tier: 'overall' }
@@ -75,6 +79,18 @@ export function PlayerPage() {
 
   const masteries = masteryData?.champion_masteries ?? [];
   const matchRegion = getRegionalRouting(player.tagLine);
+  const opggBuild = opggBuildResp?.data ?? null;
+  const opggStatusText = !primaryChampionName
+    ? 'OP.GG: 暂无可查询英雄（缺少熟练度数据）'
+    : isOpggBuildLoading
+      ? `OP.GG: 正在查询 ${primaryChampionName}`
+      : isOpggBuildError
+        ? `OP.GG: ${primaryChampionName} 查询失败`
+        : opggBuild?.rune_setup?.primary_runes?.length
+          ? `OP.GG: ${primaryChampionName} 已返回可应用符文`
+          : opggBuild?.runes?.length
+            ? `OP.GG: ${primaryChampionName} 仅返回符文名称列表`
+            : `OP.GG: ${primaryChampionName} 未返回符文数据`;
 
   return (
     <div className="min-h-screen bg-gray-900 p-8">
@@ -83,7 +99,7 @@ export function PlayerPage() {
           ← 返回
         </Link>
 
-        <PlayerCard player={player} opggBuild={opggBuildResp?.data ?? null} />
+        <PlayerCard player={player} opggBuild={opggBuild} opggStatusText={opggStatusText} />
         <div className="mt-4 grid grid-cols-1 gap-4">
           <LoLVersionCard />
           <LoLPatchAnnouncementCard />
