@@ -55,11 +55,11 @@ describe('LoLPatchAnnouncementCard', () => {
     fireEvent.click(screen.getByRole('button', { name: '展开完整版本清单' }));
     expect(screen.getByAltText('安妮 图标')).toHaveAttribute(
       'src',
-      'https://ddragon.leagueoflegends.com/cdn/15.10.1/img/champion/Annie.png'
+      'https://ddragon.leagueoflegends.com/cdn/16.10.1/img/champion/Annie.png'
     );
     expect(screen.getByAltText('多蘭之盔 图标')).toHaveAttribute(
       'src',
-      'https://ddragon.leagueoflegends.com/cdn/15.10.1/img/item/3178.png'
+      'https://ddragon.leagueoflegends.com/cdn/16.10.1/img/item/1120.png'
     );
     expect(screen.getByAltText('冥火之觸 图标')).toHaveAttribute(
       'src',

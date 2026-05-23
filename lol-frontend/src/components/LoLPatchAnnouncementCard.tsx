@@ -210,14 +210,15 @@ function buildEntityGroups(items: string[]) {
 
 function EntityIcon({ section, item }: { section: string; item: string }) {
   const entityName = item.split(/[:：]/)[0]?.trim();
-  const heroId = entityName ? CHAMPION_ICON_MAP[entityName] : undefined;
-  const itemId = entityName ? ITEM_ICON_MAP[entityName] : undefined;
-  const runeIconUrl = entityName ? RUNE_ICON_MAP[entityName] : undefined;
+  const normalizedName = entityName ? normalizeEntityName(entityName) : undefined;
+  const heroId = normalizedName ? CHAMPION_ICON_MAP[normalizedName] : undefined;
+  const itemId = normalizedName ? ITEM_ICON_MAP[normalizedName] : undefined;
+  const runeIconUrl = normalizedName ? RUNE_ICON_MAP[normalizedName] : undefined;
 
   if (section === '英雄' && heroId) {
     return (
       <img
-        src={`https://ddragon.leagueoflegends.com/cdn/15.10.1/img/champion/${heroId}.png`}
+        src={`https://ddragon.leagueoflegends.com/cdn/${DDRAGON_CDN_VERSION}/img/champion/${heroId}.png`}
         alt={`${entityName} 图标`}
         className="h-5 w-5 rounded object-cover"
         loading="lazy"
@@ -227,7 +228,7 @@ function EntityIcon({ section, item }: { section: string; item: string }) {
   if (section === '道具' && itemId) {
     return (
       <img
-        src={`https://ddragon.leagueoflegends.com/cdn/15.10.1/img/item/${itemId}.png`}
+        src={`https://ddragon.leagueoflegends.com/cdn/${DDRAGON_CDN_VERSION}/img/item/${itemId}.png`}
         alt={`${entityName} 图标`}
         className="h-5 w-5 rounded object-cover"
         loading="lazy"
@@ -251,6 +252,12 @@ function EntityIcon({ section, item }: { section: string; item: string }) {
   );
 }
 
+function normalizeEntityName(value: string) {
+  return value.replace(/\s+/g, '');
+}
+
+const DDRAGON_CDN_VERSION = '16.10.1';
+
 const CHAMPION_ICON_MAP: Record<string, string> = {
   安妮: 'Annie',
   安比薩: 'Ambessa',
@@ -263,11 +270,12 @@ const ITEM_ICON_MAP: Record<string, string> = {
   多蘭之劍: '1055',
   多蘭之戒: '1056',
   多蘭之盾: '1054',
-  多蘭之弓: '3177',
-  多蘭之盔: '3178',
-  電流旋風劍: '6677',
+  多蘭之弓: '1086',
+  多蘭之盔: '1120',
+  電流旋風劍: '6699',
   風暴浪湧: '4646',
-  貪婪護脛: '3006',
+  雷霆風暴: '4646',
+  貪婪護脛: '3008',
 };
 
 const RUNE_ICON_MAP: Record<string, string> = {
