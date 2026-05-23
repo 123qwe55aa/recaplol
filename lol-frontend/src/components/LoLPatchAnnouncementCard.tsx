@@ -1,5 +1,15 @@
 import { usePatchAnnouncement } from '../hooks/usePatchAnnouncement';
 import { useState } from 'react';
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+} from 'recharts';
 
 function formatDate(value?: string | null) {
   if (!value) return '最新公告';
@@ -14,6 +24,7 @@ export function LoLPatchAnnouncementCard() {
   const { data: announcement, isLoading, error } = usePatchAnnouncement();
   const [expanded, setExpanded] = useState(false);
   const details = announcement?.analysis?.details ?? {};
+  const categoryMetrics = buildCategoryMetrics(details);
 
   if (isLoading) {
     return (
@@ -73,6 +84,42 @@ export function LoLPatchAnnouncementCard() {
           ))}
         </ul>
 
+        <div className="mt-4 rounded-lg border border-gray-800 bg-gray-950 p-3">
+          <p className="text-sm font-semibold text-white">平衡性变更概览</p>
+          <div className="mt-3 h-56 w-full">
+            <ResponsiveContainer>
+              <BarChart data={categoryMetrics}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                <XAxis dataKey="category" stroke="#9CA3AF" fontSize={12} />
+                <YAxis allowDecimals={false} stroke="#9CA3AF" fontSize={12} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: '#111827',
+                    border: '1px solid #374151',
+                    borderRadius: '8px',
+                    color: '#fff',
+                  }}
+                />
+                <Legend />
+                <Bar dataKey="buff" name="增强" fill="#22C55E" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="nerf" name="削弱" fill="#EF4444" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+            {categoryMetrics.map((metric) => (
+              <div key={metric.category} className="rounded-lg bg-gray-900 px-3 py-2 text-xs text-gray-300">
+                <p className="text-gray-400">{metric.category}</p>
+                <p className="mt-1">
+                  增强 <span className="font-semibold text-green-300">{metric.buff}</span>
+                  {' · '}
+                  削弱 <span className="font-semibold text-red-300">{metric.nerf}</span>
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+
         <button
           type="button"
           onClick={() => setExpanded((current) => !current)}
@@ -97,7 +144,10 @@ export function LoLPatchAnnouncementCard() {
                   <p className="text-sm font-semibold text-yellow-200">{section}</p>
                   <ul className="mt-2 space-y-1 text-sm text-gray-300">
                     {items.slice(0, 6).map((item) => (
-                      <li key={`${section}-${item}`}>• {item}</li>
+                      <li key={`${section}-${item}`}>
+                        <span className={toneClass(item)}>{toneLabel(item)}</span>
+                        <span className="ml-2">• {item}</span>
+                      </li>
                     ))}
                   </ul>
                 </section>
@@ -107,4 +157,34 @@ export function LoLPatchAnnouncementCard() {
       </div>
     </section>
   );
+}
+
+function toneClass(value: string) {
+  if (isBuff(value)) return 'rounded bg-green-500/20 px-2 py-0.5 text-xs text-green-300';
+  if (isNerf(value)) return 'rounded bg-red-500/20 px-2 py-0.5 text-xs text-red-300';
+  return 'rounded bg-gray-700 px-2 py-0.5 text-xs text-gray-300';
+}
+
+function toneLabel(value: string) {
+  if (isBuff(value)) return '增强';
+  if (isNerf(value)) return '削弱';
+  return '调整';
+}
+
+function isBuff(value: string) {
+  return /(提升|增加|上调|Buff|⇒)/i.test(value) && !/(降低|削弱|下调|Nerf)/i.test(value);
+}
+
+function isNerf(value: string) {
+  return /(降低|削弱|下调|Nerf|⇒)/i.test(value) && !/(提升|增加|上调|Buff)/i.test(value);
+}
+
+function buildCategoryMetrics(details: Record<string, string[]>) {
+  const labels = ['英雄', '道具', '符文'];
+  return labels.map((label) => {
+    const values = details[label] ?? [];
+    const buff = values.filter(isBuff).length;
+    const nerf = values.filter(isNerf).length;
+    return { category: label, buff, nerf };
+  });
 }

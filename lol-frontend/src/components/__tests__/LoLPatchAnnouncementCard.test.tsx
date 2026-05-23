@@ -8,6 +8,14 @@ vi.mock('../../hooks/usePatchAnnouncement', () => ({
   usePatchAnnouncement: () => mockUsePatchAnnouncement(),
 }));
 
+class ResizeObserverMock {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+
+vi.stubGlobal('ResizeObserver', ResizeObserverMock);
+
 describe('LoLPatchAnnouncementCard', () => {
   it('renders the latest patch note announcement and parsed takeaways', () => {
     mockUsePatchAnnouncement.mockReturnValue({
@@ -23,8 +31,9 @@ describe('LoLPatchAnnouncementCard', () => {
           sections: ['版本概要', '英雄', '道具'],
           takeaways: ['英雄：安比薩獲得上路和打野方向調整。'],
           details: {
-            英雄: ['安比薩：目標最大生命傷害：2 / 3 / 4 / 5 / 6% ⇒ 4 / 4.5 / 5 / 5.5 / 6%'],
+            英雄: ['安比薩：傷害提升'],
             道具: ['多蘭之盔：生命 ：110 ⇒ 140'],
+            符文: ['冥火之觸：傷害降低'],
           },
         },
       },
@@ -42,11 +51,16 @@ describe('LoLPatchAnnouncementCard', () => {
       'href',
       'https://www.leagueoflegends.com/zh-tw/news/game-updates/league-of-legends-patch-26-10-notes/'
     );
-    expect(screen.queryByText('安比薩：目標最大生命傷害：2 / 3 / 4 / 5 / 6% ⇒ 4 / 4.5 / 5 / 5.5 / 6%')).not.toBeInTheDocument();
+    expect(screen.getByText('平衡性变更概览')).toBeInTheDocument();
+    expect(screen.getAllByText('英雄').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('道具').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('符文').length).toBeGreaterThan(0);
+    expect(screen.queryByText('安比薩：傷害提升')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: '展开完整版本清单' }));
-    expect(screen.getByText(/安比薩：目標最大生命傷害：2 \/ 3 \/ 4 \/ 5 \/ 6% ⇒ 4 \/ 4\.5 \/ 5 \/ 5\.5 \/ 6%/)).toBeInTheDocument();
+    expect(screen.getByText(/安比薩：傷害提升/)).toBeInTheDocument();
     expect(screen.getByText(/多蘭之盔：生命 ：110 ⇒ 140/)).toBeInTheDocument();
+    expect(screen.getByText(/冥火之觸：傷害降低/)).toBeInTheDocument();
   });
 
   it('renders a loading state', () => {
