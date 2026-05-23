@@ -40,6 +40,10 @@ export function PlayerCard({ player }: PlayerCardProps) {
         </div>
       </div>
 
+      <div className="mt-6 pt-6 border-t border-gray-700">
+        <RuneSimulator recommendedRunes={[]} />
+      </div>
+
       {player.recentChampions.length > 0 && (
         <div className="mt-6">
           <p className="text-gray-400 mb-2">最近使用</p>
@@ -55,10 +59,6 @@ export function PlayerCard({ player }: PlayerCardProps) {
           </div>
         </div>
       )}
-
-      <div className="mt-6">
-        <RuneSimulator recommendedRunes={[]} />
-      </div>
     </div>
   );
 }
