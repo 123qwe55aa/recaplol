@@ -6,6 +6,7 @@ import { refreshPlayerByPuuid } from '../services/api';
 import { PlayerCard } from '../components/PlayerCard';
 import { ChampionPortrait } from '../components/ChampionPortrait';
 import { LoLVersionCard } from '../components/LoLVersionCard';
+import { LoLPatchAnnouncementCard } from '../components/LoLPatchAnnouncementCard';
 import { PlayerCoachChatPanel } from '../components/PlayerCoachChatPanel';
 import type { ChampionMastery } from '../types';
 
@@ -78,6 +79,7 @@ export function PlayerPage() {
         <PlayerCard player={player} />
         <div className="mt-4 grid grid-cols-1 gap-4">
           <LoLVersionCard />
+          <LoLPatchAnnouncementCard />
           <PlayerCoachChatPanel puuid={player.puuid} />
         </div>
         <div className="mt-4 flex items-center gap-3">

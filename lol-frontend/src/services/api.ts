@@ -7,6 +7,7 @@ import type {
   ChampionBuildResponse,
   CoachChatResponse,
   CoachMatchRecapResponse,
+  PatchNoteAnnouncement,
   CoachReportResponse,
   MatchRecapResponse,
   MatchTimelineResponse,
@@ -453,4 +454,9 @@ export const sendCoachQuestion = async (
 export const getLatestLolVersion = async (): Promise<string> => {
   const { data } = await api.get<string[]>(DDRAGON_VERSIONS_URL);
   return data[0] ?? '';
+};
+
+export const getLatestPatchAnnouncement = async (): Promise<PatchNoteAnnouncement> => {
+  const { data } = await api.get<PatchNoteAnnouncement>('/patch-notes/latest');
+  return data;
 };

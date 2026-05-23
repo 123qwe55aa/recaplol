@@ -28,6 +28,7 @@ describe('PlayerCoachChatPanel', () => {
       </MemoryRouter>
     );
 
+    fireEvent.click(screen.getByRole('button', { name: '问 AI Coach' }));
     fireEvent.change(screen.getByPlaceholderText('问 AI Coach 一个问题...'), {
       target: { value: '我该先练什么？' },
     });
@@ -52,9 +53,32 @@ describe('PlayerCoachChatPanel', () => {
       </MemoryRouter>
     );
 
+    fireEvent.click(screen.getByRole('button', { name: '问 AI Coach' }));
     expect(screen.getByRole('link', { name: '打开完整 AI 教练' })).toHaveAttribute(
       'href',
       '/coach/test-puuid'
     );
+  });
+
+  it('opens and closes the coach dialog', () => {
+    mockUseCoachChat.mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+      error: null,
+    });
+
+    render(
+      <MemoryRouter>
+        <PlayerCoachChatPanel puuid="test-puuid" />
+      </MemoryRouter>
+    );
+
+    expect(screen.queryByPlaceholderText('问 AI Coach 一个问题...')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '问 AI Coach' }));
+    expect(screen.getByPlaceholderText('问 AI Coach 一个问题...')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '关闭' }));
+    expect(screen.queryByPlaceholderText('问 AI Coach 一个问题...')).not.toBeInTheDocument();
   });
 });

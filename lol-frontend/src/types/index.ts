@@ -220,6 +220,20 @@ export interface CoachChatResponse {
   cited_priorities?: string[];
 }
 
+export interface PatchNoteAnnouncement {
+  version: string;
+  title: string;
+  url: string;
+  published_at?: string | null;
+  summary: string;
+  overview: string;
+  analysis: {
+    headline: string;
+    sections: string[];
+    takeaways: string[];
+  };
+}
+
 export interface MatchTimelineResponse {
   match_id: string;
   frame_interval: number;
