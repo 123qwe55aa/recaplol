@@ -2,6 +2,7 @@ import { useParams, Link } from 'react-router-dom';
 import { useState } from 'react';
 import axios from 'axios';
 import { usePlayer, useChampionMastery } from '../hooks/usePlayer';
+import { useChampionBuild } from '../hooks/useChampionBuild';
 import { refreshPlayerByPuuid } from '../services/api';
 import { PlayerCard } from '../components/PlayerCard';
 import { ChampionPortrait } from '../components/ChampionPortrait';
@@ -22,6 +23,12 @@ export function PlayerPage() {
   const { gameName, tagLine } = useParams<{ gameName: string; tagLine: string }>();
   const { data: player, isLoading, error, refetch } = usePlayer(gameName!, tagLine!, !!gameName && !!tagLine);
   const { data: masteryData } = useChampionMastery(player?.puuid ?? '', !!player?.puuid);
+  const primaryChampionName = masteryData?.champion_masteries?.[0]?.championName ?? '';
+  const { data: opggBuildResp } = useChampionBuild(
+    primaryChampionName,
+    !!primaryChampionName,
+    { region: 'kr', queue: 'RANKED_SOLO_5x5', tier: 'overall' }
+  );
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshMessage, setRefreshMessage] = useState<string | null>(null);
 
@@ -76,7 +83,7 @@ export function PlayerPage() {
           ← 返回
         </Link>
 
-        <PlayerCard player={player} />
+        <PlayerCard player={player} opggBuild={opggBuildResp?.data ?? null} />
         <div className="mt-4 grid grid-cols-1 gap-4">
           <LoLVersionCard />
           <LoLPatchAnnouncementCard />

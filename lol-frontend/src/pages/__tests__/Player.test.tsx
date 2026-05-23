@@ -6,6 +6,7 @@ import type { Player } from '../../types';
 
 const mockUsePlayer = vi.fn();
 const mockUseChampionMastery = vi.fn();
+const mockUseChampionBuild = vi.fn();
 const mockUseLolVersion = vi.fn();
 const mockUsePatchAnnouncement = vi.fn();
 const mockUseCoachChat = vi.fn();
@@ -13,6 +14,10 @@ const mockUseCoachChat = vi.fn();
 vi.mock('../../hooks/usePlayer', () => ({
   usePlayer: () => mockUsePlayer(),
   useChampionMastery: () => mockUseChampionMastery(),
+}));
+
+vi.mock('../../hooks/useChampionBuild', () => ({
+  useChampionBuild: () => mockUseChampionBuild(),
 }));
 
 vi.mock('../../hooks/useLolVersion', () => ({
@@ -64,6 +69,7 @@ describe('PlayerPage', () => {
       refetch: vi.fn(),
     });
     mockUseChampionMastery.mockReturnValue({ data: { champion_masteries: [] } });
+    mockUseChampionBuild.mockReturnValue({ data: { data: null } });
     mockUseLolVersion.mockReturnValue({
       data: '26.10.1',
       isLoading: false,

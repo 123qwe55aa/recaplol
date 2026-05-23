@@ -1,13 +1,14 @@
-import type { Player } from '../types';
+import type { OpggBuild, Player } from '../types';
 import { RankBadge } from './RankBadge';
 import { ChampionPortrait } from './ChampionPortrait';
 import { RuneSimulator } from './RuneSimulator';
 
 interface PlayerCardProps {
   player: Player;
+  opggBuild?: OpggBuild | null;
 }
 
-export function PlayerCard({ player }: PlayerCardProps) {
+export function PlayerCard({ player, opggBuild = null }: PlayerCardProps) {
   const winRateColor = player.winRate >= 50 ? 'text-green-400' : 'text-red-400';
 
   return (
@@ -41,7 +42,12 @@ export function PlayerCard({ player }: PlayerCardProps) {
       </div>
 
       <div className="mt-6 pt-6 border-t border-gray-700">
-        <RuneSimulator recommendedRunes={[]} defaultCollapsed />
+        <RuneSimulator
+          recommendedRunes={opggBuild?.runes?.map((rune) => rune.name) ?? []}
+          recommendedSetup={opggBuild?.rune_setup ?? null}
+          recommendedSetupValid={opggBuild?.rune_setup_valid ?? false}
+          defaultCollapsed
+        />
       </div>
 
       {player.recentChampions.length > 0 && (
