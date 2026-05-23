@@ -121,7 +121,10 @@ export function LoLPatchAnnouncementCard() {
                     {items.slice(0, 6).map((item) => (
                       <li key={`${section}-${item}`}>
                         <span className={toneClass(item)}>{toneLabel(item)}</span>
-                        <span className="ml-2">• {item}</span>
+                        <span className="ml-2 inline-flex items-center gap-2">
+                          <EntityIcon section={section} item={item} />
+                          <span>• {item}</span>
+                        </span>
                       </li>
                     ))}
                   </ul>
@@ -169,3 +172,31 @@ function getCategoryIcon(category: string) {
   if (category === '道具') return '🛡';
   return '✦';
 }
+
+function EntityIcon({ section, item }: { section: string; item: string }) {
+  const entityName = item.split(/[:：]/)[0]?.trim();
+  const heroId = entityName ? CHAMPION_ICON_MAP[entityName] : undefined;
+  if (section === '英雄' && heroId) {
+    return (
+      <img
+        src={`https://ddragon.leagueoflegends.com/cdn/15.10.1/img/champion/${heroId}.png`}
+        alt={`${entityName} 图标`}
+        className="h-5 w-5 rounded object-cover"
+        loading="lazy"
+      />
+    );
+  }
+  return (
+    <span aria-label={`${section} 图标`} className="text-sm">
+      {getCategoryIcon(section)}
+    </span>
+  );
+}
+
+const CHAMPION_ICON_MAP: Record<string, string> = {
+  安妮: 'Annie',
+  安比薩: 'Ambessa',
+  艾妮維亞: 'Anivia',
+  李星: 'LeeSin',
+  葵恩: 'Quinn',
+};

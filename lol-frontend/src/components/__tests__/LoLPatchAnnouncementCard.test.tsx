@@ -23,7 +23,7 @@ describe('LoLPatchAnnouncementCard', () => {
           sections: ['版本概要', '英雄', '道具'],
           takeaways: ['英雄：安比薩獲得上路和打野方向調整。'],
           details: {
-            英雄: ['安比薩：傷害提升'],
+            英雄: ['安妮：Q 傷害提升', '安比薩：傷害提升'],
             道具: ['多蘭之盔：生命 ：110 ⇒ 140'],
             符文: ['冥火之觸：傷害降低'],
           },
@@ -53,6 +53,11 @@ describe('LoLPatchAnnouncementCard', () => {
     expect(screen.queryByText('安比薩：傷害提升')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: '展开完整版本清单' }));
+    expect(screen.getByAltText('安妮 图标')).toHaveAttribute(
+      'src',
+      'https://ddragon.leagueoflegends.com/cdn/15.10.1/img/champion/Annie.png'
+    );
+    expect(screen.getByText(/安妮：Q 傷害提升/)).toBeInTheDocument();
     expect(screen.getByText(/安比薩：傷害提升/)).toBeInTheDocument();
     expect(screen.getByText(/多蘭之盔：生命 ：110 ⇒ 140/)).toBeInTheDocument();
     expect(screen.getByText(/冥火之觸：傷害降低/)).toBeInTheDocument();
