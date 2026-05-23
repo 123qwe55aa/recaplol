@@ -197,16 +197,49 @@ function transformMatchList(apiResponse: ApiMatchListResponse): { matchIds: stri
   };
 }
 
-// Note: Champion name mapping would require a separate lookup or static data
-// For now, we'll use champion ID as placeholder
-const CHAMPION_ID_TO_NAME: Record<number, string> = {
-  1: 'Annie', 10: 'Kayle', 11: 'Master Yi', 16: 'Soraka', 18: 'Tristana',
-  19: 'Warwick', 2: 'Olafr', 20: 'Nunu', 21: 'Miss Fortune', 22: 'Ashe',
-  // Add more as needed - this is a partial mapping
+const CHAMPION_ID_TO_NAME_FALLBACK: Record<number, string> = {
+  1: 'Annie', 10: 'Kayle', 11: 'MasterYi', 16: 'Soraka', 18: 'Tristana',
+  19: 'Warwick', 2: 'Olaf', 20: 'Nunu', 21: 'MissFortune', 22: 'Ashe',
 };
 
+let championIdToNameCache: Record<number, string> | null = null;
+
+async function loadChampionIdToNameMap(): Promise<Record<number, string>> {
+  if (championIdToNameCache) return championIdToNameCache;
+
+  try {
+    const versionsRes = await fetch('https://ddragon.leagueoflegends.com/api/versions.json');
+    if (!versionsRes.ok) throw new Error('versions fetch failed');
+    const versions = (await versionsRes.json()) as string[];
+    const latestVersion = versions?.[0];
+    if (!latestVersion) throw new Error('version missing');
+
+    const championRes = await fetch(
+      `https://ddragon.leagueoflegends.com/cdn/${latestVersion}/data/en_US/champion.json`
+    );
+    if (!championRes.ok) throw new Error('champion.json fetch failed');
+    const championData = await championRes.json() as {
+      data?: Record<string, { key?: string; id?: string }>;
+    };
+
+    const map: Record<number, string> = {};
+    for (const champ of Object.values(championData.data ?? {})) {
+      const key = Number(champ.key);
+      if (Number.isFinite(key) && champ.id) {
+        map[key] = champ.id;
+      }
+    }
+
+    championIdToNameCache = Object.keys(map).length > 0 ? map : CHAMPION_ID_TO_NAME_FALLBACK;
+  } catch {
+    championIdToNameCache = CHAMPION_ID_TO_NAME_FALLBACK;
+  }
+
+  return championIdToNameCache;
+}
+
 function getChampionName(championId: number): string {
-  return CHAMPION_ID_TO_NAME[championId] ?? `Champion_${championId}`;
+  return CHAMPION_ID_TO_NAME_FALLBACK[championId] ?? `Champion_${championId}`;
 }
 
 export const searchPlayer = async (gameName: string, tagLine: string): Promise<Player> => {
@@ -383,6 +416,7 @@ export const getChampionMastery = async (
   puuid: string,
   limit = 10
 ): Promise<{ champion_masteries: ClientChampionMastery[] }> => {
+  const championIdToName = await loadChampionIdToNameMap();
   const { data } = await api.get<ApiPlayerMasteryResponse>(`/players/${puuid}/mastery`, {
     params: { limit },
   });
@@ -390,7 +424,7 @@ export const getChampionMastery = async (
   return {
     champion_masteries: data.champion_masteries.map((m) => ({
       championId: m.champion_id,
-      championName: getChampionName(m.champion_id),
+      championName: championIdToName[m.champion_id] ?? getChampionName(m.champion_id),
       level: m.champion_level,
       points: m.champion_points,
       lastPlayed: m.last_played_time ?? 0,
