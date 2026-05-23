@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MatchHistory } from '../MatchHistory';
 
@@ -18,6 +18,11 @@ vi.mock('../../services/api', () => ({
   getSavedAiMatchRecap: (...args: unknown[]) => getSavedAiMatchRecap(...args),
 }));
 
+function LocationProbe() {
+  const location = useLocation();
+  return <div data-testid="location">{`${location.pathname}${location.search}`}</div>;
+}
+
 function renderPage(route = '/matches/test-puuid') {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -29,6 +34,7 @@ function renderPage(route = '/matches/test-puuid') {
   return render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={[route]}>
+        <LocationProbe />
         <Routes>
           <Route path="/matches/:puuid" element={<MatchHistory />} />
         </Routes>
@@ -110,6 +116,15 @@ describe('MatchHistory', () => {
 
     await waitFor(() => {
       expect(fetchPlayerMatches).toHaveBeenCalledWith('test-puuid', 20, 'sea');
+    });
+  });
+
+  it('moves to the latest puuid when sync resolves a stale puuid', async () => {
+    fetchPlayerMatches.mockResolvedValue({ fetched: 0, match_count: 20, puuid: 'new-puuid' });
+    renderPage('/matches/old-puuid?region=sea');
+
+    await waitFor(() => {
+      expect(screen.getByTestId('location')).toHaveTextContent('/matches/new-puuid?region=sea');
     });
   });
 

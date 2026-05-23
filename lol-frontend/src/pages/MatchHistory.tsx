@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useParams, Link, useSearchParams } from 'react-router-dom';
+import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import {
   fetchMatchTimeline,
@@ -20,6 +20,7 @@ function statText(value: number | null | undefined, suffix = '') {
 
 export function MatchHistory() {
   const { puuid } = useParams<{ puuid: string }>();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { currentPlayer } = usePlayerStore();
   const [recaps, setRecaps] = useState<Record<string, CoachMatchRecapResponse>>({});
@@ -72,11 +73,17 @@ export function MatchHistory() {
     if (!resolvedPuuid || hasSyncedRef.current) return;
     hasSyncedRef.current = true;
     syncMatches.mutate(undefined, {
-      onSuccess: () => {
+      onSuccess: (result) => {
+        if (result?.puuid && result.puuid !== resolvedPuuid) {
+          navigate(`/matches/${encodeURIComponent(result.puuid)}?region=${encodeURIComponent(region)}`, {
+            replace: true,
+          });
+          return;
+        }
         void refetch();
       },
     });
-  }, [resolvedPuuid, region, refetch, syncMatches]);
+  }, [navigate, resolvedPuuid, region, refetch, syncMatches]);
 
   useEffect(() => {
     if (!resolvedPuuid || !matchData?.matches.length) return;

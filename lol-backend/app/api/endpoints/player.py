@@ -16,6 +16,8 @@ from app.services.riot_api_client import RiotAPIClient, RiotAPIError, get_riot_c
 
 router = APIRouter(prefix="/players", tags=["players"])
 
+SEA_TAG_LINES = {"tw2", "sg2", "ph2", "th2", "vn2", "my2", "id2"}
+
 
 def _should_ignore_ranked_decrypt_error(exc: RiotAPIError) -> bool:
     return exc.status_code == 400 and "Exception decrypting" in exc.message
@@ -23,6 +25,12 @@ def _should_ignore_ranked_decrypt_error(exc: RiotAPIError) -> bool:
 
 def _is_decrypt_error(exc: RiotAPIError) -> bool:
     return exc.status_code == 400 and "Exception decrypting" in exc.message
+
+
+def _should_resolve_latest_puuid(player, tag_line: str) -> bool:
+    if not player:
+        return True
+    return tag_line.lower() in SEA_TAG_LINES
 
 
 def _build_player_response(player) -> PlayerResponse:
@@ -164,26 +172,54 @@ async def get_player_by_summoner(
     repo = PlayerRepository(db)
     player = await repo.get_by_summoner_name(summoner_name, tag_line)
 
-    # If not in DB, fetch from Riot API and upsert
-    if not player:
+    # SEA accounts can rotate from legacy/stale PUUIDs. Re-resolve by Riot ID
+    # before returning cached rows so downstream match history uses the current PUUID.
+    if _should_resolve_latest_puuid(player, tag_line):
         riot_client: RiotAPIClient = get_riot_client()
         async with riot_client:
             # Get PUUID by Riot ID
             account_data = await riot_client.get_puuid_by_riot_id(summoner_name, tag_line)
             if not account_data:
+                if player:
+                    return _build_player_response(player)
                 raise HTTPException(
                     status_code=404,
                     detail=f"Player {summoner_name}#{tag_line} not found"
                 )
             puuid = account_data["puuid"]
 
+            if player and player.puuid == puuid:
+                return _build_player_response(player)
+
             # Get summoner data by PUUID (correct platform for this tag line)
-            summoner_data = await riot_client.get_summoner_by_puuid(puuid, tag_line=tag_line)
+            try:
+                summoner_data = await riot_client.get_summoner_by_puuid(puuid, tag_line=tag_line)
+            except RiotAPIError as exc:
+                if not _is_decrypt_error(exc):
+                    raise
+                summoner_data = None
             if not summoner_data:
-                raise HTTPException(
-                    status_code=404,
-                    detail=f"Summoner data not found for {summoner_name}#{tag_line}"
+                if not player:
+                    raise HTTPException(
+                        status_code=404,
+                        detail=f"Summoner data not found for {summoner_name}#{tag_line}"
+                    )
+                player = await repo.upsert_player(
+                    puuid=puuid,
+                    summoner_name=player.summoner_name,
+                    tag_line=player.tag_line,
+                    summoner_id=player.summoner_id,
+                    profile_icon_id=player.profile_icon_id or 0,
+                    summoner_level=player.summoner_level or 1,
+                    revision_date=player.revision_date,
+                    ranked_solo_tier=player.ranked_solo_tier,
+                    ranked_solo_rank=player.ranked_solo_rank,
+                    ranked_solo_league_points=player.ranked_solo_league_points or 0,
+                    ranked_solo_wins=player.ranked_solo_wins or 0,
+                    ranked_solo_losses=player.ranked_solo_losses or 0,
                 )
+                await db.commit()
+                return _build_player_response(player)
 
             # Get ranked stats
             ranked_data = None
