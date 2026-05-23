@@ -8,14 +8,6 @@ vi.mock('../../hooks/usePatchAnnouncement', () => ({
   usePatchAnnouncement: () => mockUsePatchAnnouncement(),
 }));
 
-class ResizeObserverMock {
-  observe() {}
-  unobserve() {}
-  disconnect() {}
-}
-
-vi.stubGlobal('ResizeObserver', ResizeObserverMock);
-
 describe('LoLPatchAnnouncementCard', () => {
   it('renders the latest patch note announcement and parsed takeaways', () => {
     mockUsePatchAnnouncement.mockReturnValue({
@@ -55,6 +47,9 @@ describe('LoLPatchAnnouncementCard', () => {
     expect(screen.getAllByText('英雄').length).toBeGreaterThan(0);
     expect(screen.getAllByText('道具').length).toBeGreaterThan(0);
     expect(screen.getAllByText('符文').length).toBeGreaterThan(0);
+    expect(screen.getByText('⚔')).toBeInTheDocument();
+    expect(screen.getByText('🛡')).toBeInTheDocument();
+    expect(screen.getByText('✦')).toBeInTheDocument();
     expect(screen.queryByText('安比薩：傷害提升')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: '展开完整版本清单' }));

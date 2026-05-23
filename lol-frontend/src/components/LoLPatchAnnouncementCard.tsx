@@ -1,15 +1,5 @@
 import { usePatchAnnouncement } from '../hooks/usePatchAnnouncement';
 import { useState } from 'react';
-import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-} from 'recharts';
 
 function formatDate(value?: string | null) {
   if (!value) return '最新公告';
@@ -86,31 +76,16 @@ export function LoLPatchAnnouncementCard() {
 
         <div className="mt-4 rounded-lg border border-gray-800 bg-gray-950 p-3">
           <p className="text-sm font-semibold text-white">平衡性变更概览</p>
-          <div className="mt-3 h-56 w-full">
-            <ResponsiveContainer>
-              <BarChart data={categoryMetrics}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                <XAxis dataKey="category" stroke="#9CA3AF" fontSize={12} />
-                <YAxis allowDecimals={false} stroke="#9CA3AF" fontSize={12} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#111827',
-                    border: '1px solid #374151',
-                    borderRadius: '8px',
-                    color: '#fff',
-                  }}
-                />
-                <Legend />
-                <Bar dataKey="buff" name="增强" fill="#22C55E" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="nerf" name="削弱" fill="#EF4444" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
           <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
             {categoryMetrics.map((metric) => (
-              <div key={metric.category} className="rounded-lg bg-gray-900 px-3 py-2 text-xs text-gray-300">
-                <p className="text-gray-400">{metric.category}</p>
-                <p className="mt-1">
+              <div key={metric.category} className="rounded-lg border border-gray-800 bg-gray-900 px-3 py-2 text-xs text-gray-300">
+                <p className="flex items-center gap-2 text-gray-200">
+                  <span aria-hidden="true" className="text-sm">
+                    {getCategoryIcon(metric.category)}
+                  </span>
+                  <span>{metric.category}</span>
+                </p>
+                <p className="mt-1 text-gray-300">
                   增强 <span className="font-semibold text-green-300">{metric.buff}</span>
                   {' · '}
                   削弱 <span className="font-semibold text-red-300">{metric.nerf}</span>
@@ -187,4 +162,10 @@ function buildCategoryMetrics(details: Record<string, string[]>) {
     const nerf = values.filter(isNerf).length;
     return { category: label, buff, nerf };
   });
+}
+
+function getCategoryIcon(category: string) {
+  if (category === '英雄') return '⚔';
+  if (category === '道具') return '🛡';
+  return '✦';
 }
