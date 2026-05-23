@@ -91,7 +91,18 @@ describe('MatchHistory', () => {
       expect(getPlayerMatchesWithDetails).toHaveBeenCalledTimes(2);
     });
 
-    expect(screen.getByText(/最新战绩已同步/i)).toBeInTheDocument();
+    expect(screen.getByText(/最新战绩已同步（新增 10 场）/i)).toBeInTheDocument();
+  });
+
+  it('shows up-to-date message when sync returns no new matches', async () => {
+    fetchPlayerMatches.mockResolvedValue({ fetched: 0, match_count: 10 });
+    renderPage();
+
+    await waitFor(() => {
+      expect(fetchPlayerMatches).toHaveBeenCalledWith('test-puuid', 20, 'americas');
+    });
+
+    expect(screen.getByText(/战绩已是最新，无需同步/i)).toBeInTheDocument();
   });
 
   it('uses route region query when syncing latest matches', async () => {

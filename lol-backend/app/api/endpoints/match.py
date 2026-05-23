@@ -350,6 +350,7 @@ async def fetch_player_matches(
     participant_repo = MatchParticipantRepository(db)
     player_repo = PlayerRepository(db)
     fetched = 0
+    updated = 0
     errors = []
     effective_puuid = puuid
     effective_region = region
@@ -480,6 +481,7 @@ async def fetch_player_matches(
                     existing.blue_team_win = blue_win
                     existing.blue_team_bans = blue_bans
                     existing.red_team_bans = red_bans
+                    updated += 1
                 else:
                     # Create new match
                     new_match = Match(
@@ -497,6 +499,7 @@ async def fetch_player_matches(
                         red_team_bans=red_bans,
                     )
                     db.add(new_match)
+                    fetched += 1
 
                 # Parse participants
                 participants_data = metadata.get("participants", [])
@@ -561,7 +564,6 @@ async def fetch_player_matches(
                     }
 
                     await participant_repo.upsert_participants(match_id, [participant_record])
-                    fetched += 1
 
             except Exception as e:
                 errors.append(f"{match_id}: {str(e)}")
@@ -570,6 +572,7 @@ async def fetch_player_matches(
 
     return {
         "fetched": fetched,
+        "updated": updated,
         "puuid": effective_puuid,
         "region": effective_region,
         "match_count": len(match_ids),

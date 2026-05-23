@@ -66,6 +66,12 @@ class RiotAPIClient:
         self.timeout = timeout
         self._client: Optional[httpx.AsyncClient] = None
 
+    @staticmethod
+    def _normalize_puuid(puuid: str) -> str:
+        # Defensive cleanup for values copied from logs/UI that may include
+        # wrapping quotes or surrounding whitespace.
+        return puuid.strip().strip('"').strip("'")
+
     async def __aenter__(self):
         self._client = httpx.AsyncClient(
             headers={"X-Riot-Token": self.api_key},
@@ -101,12 +107,12 @@ class RiotAPIClient:
         wait=wait_exponential(multiplier=1, min=2, max=10),
         retry=retry_if_exception_type(RateLimitError),
     )
-    async def _get(self, url: str) -> Optional[Dict]:
+    async def _get(self, url: str, params: Optional[Dict[str, Any]] = None) -> Optional[Dict]:
         if not self._client:
             raise RuntimeError("Client not initialized. Use async context manager.")
         try:
             logger.debug("riot_api_request", method="GET", url=url)
-            response = await self._client.get(url)
+            response = await self._client.get(url, params=params)
             return self._handle_response(response)
         except RateLimitError:
             logger.warning("riot_api_rate_limited", url=url)
@@ -131,7 +137,8 @@ class RiotAPIClient:
     # Summoner/ranked/champion-mastery endpoints (use platform routing)
     async def get_summoner_by_puuid(self, puuid: str, tag_line: str = "na1") -> Optional[Dict]:
         base = self.TAG_TO_PLATFORM.get(tag_line.lower(), self.REGION_URL)
-        url = f"{base}/lol/summoner/v4/summoners/by-puuid/{puuid}"
+        normalized_puuid = self._normalize_puuid(puuid)
+        url = f"{base}/lol/summoner/v4/summoners/by-puuid/{normalized_puuid}"
         return await self._get(url)
 
     async def get_summoner_by_name(self, summoner_name: str) -> Optional[Dict]:
@@ -165,16 +172,17 @@ class RiotAPIClient:
         type: Optional[str] = None,
         region: Optional[str] = None,
     ) -> List[str]:
+        normalized_puuid = self._normalize_puuid(puuid)
         base_url = self.BASE_URL
         if region:
             base_url = self.REGIONAL_URLS.get(region.lower(), self.BASE_URL)
-        url = f"{base_url}/lol/match/v5/matches/by-puuid/{puuid}/ids"
+        url = f"{base_url}/lol/match/v5/matches/by-puuid/{normalized_puuid}/ids"
         params = {"start": start, "count": count}
         if queue:
             params["queue"] = queue
         if type:
             params["type"] = type
-        data = await self._get(url)
+        data = await self._get(url, params=params)
         return data or []
 
     async def get_match(self, match_id: str) -> Optional[Dict]:

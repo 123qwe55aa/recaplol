@@ -39,6 +39,8 @@ export function MatchHistory() {
   const syncMatches = useMutation({
     mutationFn: () => fetchPlayerMatches(resolvedPuuid, 20, region),
   });
+  const syncedNewMatches = syncMatches.data?.fetched ?? 0;
+  const syncedTotalMatches = syncMatches.data?.match_count ?? 0;
   const recapMutation = useMutation({
     mutationFn: async (matchId: string) => {
       await fetchMatchTimeline(matchId);
@@ -136,8 +138,14 @@ export function MatchHistory() {
           {syncMatches.isPending && (
             <span className="text-yellow-400">正在同步最新战绩，可能需要半分钟...</span>
           )}
-          {syncMatches.isSuccess && (
-            <span className="text-green-400">最新战绩已同步</span>
+          {syncMatches.isSuccess && syncedNewMatches > 0 && (
+            <span className="text-green-400">最新战绩已同步（新增 {syncedNewMatches} 场）</span>
+          )}
+          {syncMatches.isSuccess && syncedNewMatches === 0 && syncedTotalMatches > 0 && (
+            <span className="text-gray-300">战绩已是最新，无需同步</span>
+          )}
+          {syncMatches.isSuccess && syncedTotalMatches === 0 && (
+            <span className="text-gray-300">未获取到可同步战绩</span>
           )}
           {syncMatches.isError && (
             <span className="text-red-400">同步最新战绩失败，当前显示本地已有记录</span>
