@@ -23,7 +23,7 @@ describe('LoLPatchAnnouncementCard', () => {
           sections: ['版本概要', '英雄', '道具'],
           takeaways: ['英雄：安比薩獲得上路和打野方向調整。'],
           details: {
-            英雄: ['安妮：Q 傷害提升', '安比薩：傷害提升'],
+            英雄: ['安妮：Q 傷害提升', '安比薩：傷害提升', '安比薩：治療百分比提升'],
             道具: ['多蘭之盔：生命 ：110 ⇒ 140'],
             符文: ['冥火之觸：傷害降低'],
           },
@@ -67,6 +67,7 @@ describe('LoLPatchAnnouncementCard', () => {
     );
     expect(screen.getByText(/安妮：Q 傷害提升/)).toBeInTheDocument();
     expect(screen.getByText(/安比薩：傷害提升/)).toBeInTheDocument();
+    expect(screen.getByText(/安比薩：治療百分比提升/)).toBeInTheDocument();
     expect(screen.getByText(/多蘭之盔：生命 ：110 ⇒ 140/)).toBeInTheDocument();
     expect(screen.getByText(/冥火之觸：傷害降低/)).toBeInTheDocument();
   });

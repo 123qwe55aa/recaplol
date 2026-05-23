@@ -117,17 +117,38 @@ export function LoLPatchAnnouncementCard() {
               .map(([section, items]) => (
                 <section key={section} className="rounded-lg border border-gray-800 bg-gray-950 p-3">
                   <p className="text-sm font-semibold text-yellow-200">{section}</p>
-                  <ul className="mt-2 space-y-1 text-sm text-gray-300">
-                    {items.slice(0, 6).map((item) => (
-                      <li key={`${section}-${item}`}>
-                        <span className={toneClass(item)}>{toneLabel(item)}</span>
-                        <span className="ml-2 inline-flex items-center gap-2">
-                          <EntityIcon section={section} item={item} />
-                          <span>• {item}</span>
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
+                  {section === '英雄' ? (
+                    <div className="mt-2 space-y-3">
+                      {buildEntityGroups(items).map((group) => (
+                        <div key={`${section}-${group.name}`} className="rounded border border-gray-800 bg-gray-900/60 p-2">
+                          <p className="flex items-center gap-2 text-sm font-semibold text-gray-100">
+                            <EntityIcon section={section} item={group.name} />
+                            <span>{group.name}</span>
+                          </p>
+                          <ul className="mt-2 space-y-1 text-sm text-gray-300">
+                            {group.items.map((item) => (
+                              <li key={`${section}-${group.name}-${item}`}>
+                                <span className={toneClass(item)}>{toneLabel(item)}</span>
+                                <span className="ml-2">• {item}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <ul className="mt-2 space-y-1 text-sm text-gray-300">
+                      {items.slice(0, 6).map((item) => (
+                        <li key={`${section}-${item}`}>
+                          <span className={toneClass(item)}>{toneLabel(item)}</span>
+                          <span className="ml-2 inline-flex items-center gap-2">
+                            <EntityIcon section={section} item={item} />
+                            <span>• {item}</span>
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </section>
               ))}
           </div>
@@ -171,6 +192,20 @@ function getCategoryIcon(category: string) {
   if (category === '英雄') return '⚔';
   if (category === '道具') return '🛡';
   return '✦';
+}
+
+function buildEntityGroups(items: string[]) {
+  const groups = new Map<string, string[]>();
+  items.forEach((item) => {
+    const name = item.split(/[:：]/)[0]?.trim() || '其他';
+    const bucket = groups.get(name);
+    if (bucket) bucket.push(item);
+    else groups.set(name, [item]);
+  });
+  return Array.from(groups.entries()).map(([name, groupedItems]) => ({
+    name,
+    items: groupedItems.slice(0, 6),
+  }));
 }
 
 function EntityIcon({ section, item }: { section: string; item: string }) {
