@@ -210,10 +210,13 @@ function buildEntityGroups(items: string[]) {
 
 function EntityIcon({ section, item }: { section: string; item: string }) {
   const entityName = item.split(/[:：]/)[0]?.trim();
-  const normalizedName = entityName ? normalizeEntityName(entityName) : undefined;
-  const heroId = normalizedName ? CHAMPION_ICON_MAP[normalizedName] : undefined;
-  const itemId = normalizedName ? ITEM_ICON_MAP[normalizedName] : undefined;
-  const runeIconUrl = normalizedName ? RUNE_ICON_MAP[normalizedName] : undefined;
+  const normalizedName = entityName ? normalizeEntityName(entityName) : '';
+  const heroKey = resolveMappedKey(normalizedName, CHAMPION_ICON_MAP);
+  const itemKey = resolveMappedKey(normalizedName, ITEM_ICON_MAP);
+  const runeKey = resolveMappedKey(normalizedName, RUNE_ICON_MAP);
+  const heroId = heroKey ? CHAMPION_ICON_MAP[heroKey] : undefined;
+  const itemId = itemKey ? ITEM_ICON_MAP[itemKey] : undefined;
+  const runeIconUrl = runeKey ? RUNE_ICON_MAP[runeKey] : undefined;
 
   if (section === '英雄' && heroId) {
     return (
@@ -253,7 +256,39 @@ function EntityIcon({ section, item }: { section: string; item: string }) {
 }
 
 function normalizeEntityName(value: string) {
-  return value.replace(/\s+/g, '');
+  return value
+    .replace(/\s+/g, '')
+    .replace(/[•·,，。.!！?？()（）「」『』【】]/g, '')
+    .replace(/^英雄/, '')
+    .replace(/^道具/, '')
+    .replace(/^符文/, '');
+}
+
+function resolveMappedKey(source: string, table: Record<string, string>) {
+  if (!source) return undefined;
+  const direct = table[source];
+  if (direct) return source;
+
+  const alias = ENTITY_ALIASES[source];
+  if (alias && table[alias]) return alias;
+
+  const allKeys = Object.keys(table);
+  const exactInclusion = allKeys.find((key) => source.includes(key) || key.includes(source));
+  if (exactInclusion) return exactInclusion;
+
+  const simplifiedSource = toSimplified(source);
+  const simplifiedMatch = allKeys.find((key) => simplifiedSource.includes(toSimplified(key)));
+  return simplifiedMatch;
+}
+
+function toSimplified(value: string) {
+  return value
+    .replace(/蘭/g, '兰')
+    .replace(/觸/g, '触')
+    .replace(/護/g, '护')
+    .replace(/風/g, '风')
+    .replace(/劍/g, '剑')
+    .replace(/盔/g, '盔');
 }
 
 const DDRAGON_CDN_VERSION = '16.10.1';
@@ -283,4 +318,20 @@ const RUNE_ICON_MAP: Record<string, string> = {
   不死之握: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Resolve/GraspOfTheUndying/GraspOfTheUndying.png',
   先攻: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Inspiration/FirstStrike/FirstStrike.png',
   致命節奏: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Precision/LethalTempo/LethalTempoTemp.png',
+};
+
+const ENTITY_ALIASES: Record<string, string> = {
+  多兰之剑: '多蘭之劍',
+  多兰之戒: '多蘭之戒',
+  多兰之盾: '多蘭之盾',
+  多兰之弓: '多蘭之弓',
+  多兰之盔: '多蘭之盔',
+  电流旋风剑: '電流旋風劍',
+  风暴浪涌: '風暴浪湧',
+  雷霆风暴: '雷霆風暴',
+  贪婪护胫: '貪婪護脛',
+  冥火之触: '冥火之觸',
+  致命节奏: '致命節奏',
+  安比萨: '安比薩',
+  艾妮维亚: '艾妮維亞',
 };
