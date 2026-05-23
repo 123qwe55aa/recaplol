@@ -79,6 +79,9 @@ const SHARDS = [
   ['护甲', '魔抗', '生命值'],
 ];
 
+const DDRAGON_BASE = 'https://ddragon.leagueoflegends.com/cdn';
+const DDRAGON_VERSIONS_URL = 'https://ddragon.leagueoflegends.com/api/versions.json';
+
 const SHARD_ICON_MAP: Record<string, string> = {
   自适应之力: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/StatMods/StatModsAdaptiveForceIcon.png',
   攻击速度: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/StatMods/StatModsAttackSpeedIcon.png',
@@ -177,6 +180,61 @@ interface RunePresetRecord extends RunePreset {
   updatedAt: number;
 }
 
+interface RuneInfo {
+  icon: string;
+  shortDesc: string;
+  longDesc: string;
+}
+
+type RuneInfoMap = Record<string, RuneInfo>;
+
+function normalizeRuneName(name: string): string {
+  return name
+    .replace(/：/g, ':')
+    .replace(/\s+/g, '')
+    .replace(/[()（）'".,，。]/g, '')
+    .toLowerCase();
+}
+
+function stripHtml(input: string): string {
+  return input
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/?[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+    .trim();
+}
+
+function extractRuneInfo(payload: unknown): RuneInfoMap {
+  const result: RuneInfoMap = {};
+  if (!Array.isArray(payload)) return result;
+
+  for (const style of payload) {
+    const slots = (style as { slots?: unknown[] }).slots;
+    if (!Array.isArray(slots)) continue;
+    for (const slot of slots) {
+      const runes = (slot as { runes?: unknown[] }).runes;
+      if (!Array.isArray(runes)) continue;
+      for (const rune of runes) {
+        const node = rune as { name?: string; icon?: string; shortDesc?: string; longDesc?: string };
+        const name = (node.name ?? '').trim();
+        if (!name) continue;
+        result[normalizeRuneName(name)] = {
+          icon: node.icon ? `${DDRAGON_BASE}/img/${node.icon}` : '',
+          shortDesc: stripHtml(node.shortDesc ?? ''),
+          longDesc: stripHtml(node.longDesc ?? ''),
+        };
+      }
+    }
+  }
+
+  return result;
+}
+
 function getStorage(): Pick<Storage, 'getItem' | 'setItem'> | null {
   const candidate = globalThis.localStorage as Partial<Storage> | undefined;
   if (!candidate) return null;
@@ -207,18 +265,21 @@ function RuneNode({
   onClick,
   activeClass,
   iconMap = RUNE_ICON_MAP,
+  runeInfoMap,
 }: {
   name: string;
   active: boolean;
   onClick: () => void;
   activeClass: string;
   iconMap?: Record<string, string>;
+  runeInfoMap?: RuneInfoMap;
 }) {
-  const icon = iconMap[name];
+  const info = runeInfoMap?.[normalizeRuneName(name)];
+  const icon = info?.icon || iconMap[name];
   return (
     <button
       type="button"
-      title={name}
+      title={info?.shortDesc ? `${name}\n${info.shortDesc}` : name}
       aria-label={name}
       onClick={onClick}
       className={`group flex items-center gap-2 rounded-lg px-2 py-1 transition-colors ${
@@ -268,6 +329,10 @@ export function RuneSimulator({
   );
   const [notice, setNotice] = useState('');
   const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed);
+  const [isFetchingRuneInfo, setIsFetchingRuneInfo] = useState(false);
+  const [runeInfoMap, setRuneInfoMap] = useState<RuneInfoMap>({});
+  const [focusedRuneName, setFocusedRuneName] = useState<string | null>(null);
+  const [runeInfoVersion, setRuneInfoVersion] = useState<string | null>(null);
 
   const primaryPath = useMemo(
     () => RUNE_PATHS.find((path) => path.id === primaryPathId) ?? RUNE_PATHS[0],
@@ -396,6 +461,39 @@ export function RuneSimulator({
     }
   };
 
+  const fetchRuneInfoUpdate = async () => {
+    setIsFetchingRuneInfo(true);
+    try {
+      const versionsRes = await fetch(DDRAGON_VERSIONS_URL);
+      if (!versionsRes.ok) throw new Error('version fetch failed');
+      const versions = (await versionsRes.json()) as string[];
+      const latestVersion = versions?.[0];
+      if (!latestVersion) throw new Error('version missing');
+
+      const locales = ['zh_CN', 'en_US'];
+      const merged: RuneInfoMap = {};
+      for (const locale of locales) {
+        const url = `${DDRAGON_BASE}/${latestVersion}/data/${locale}/runesReforged.json`;
+        const res = await fetch(url);
+        if (!res.ok) continue;
+        const payload = await res.json();
+        const parsed = extractRuneInfo(payload);
+        Object.assign(merged, parsed);
+      }
+
+      if (!Object.keys(merged).length) throw new Error('no rune info');
+      setRuneInfoMap(merged);
+      setRuneInfoVersion(latestVersion);
+      setNotice(`已更新符文信息（${latestVersion}）`);
+    } catch {
+      setNotice('符文信息更新失败');
+    } finally {
+      setIsFetchingRuneInfo(false);
+    }
+  };
+
+  const focusedRuneInfo = focusedRuneName ? runeInfoMap[normalizeRuneName(focusedRuneName)] : null;
+
   return (
     <div className="bg-gray-800 rounded-xl p-6 space-y-6">
       <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -452,6 +550,14 @@ export function RuneSimulator({
         </select>
         <button
           type="button"
+          onClick={fetchRuneInfoUpdate}
+          disabled={isFetchingRuneInfo}
+          className="px-3 py-2 rounded-lg bg-blue-700 text-white hover:bg-blue-600 disabled:opacity-60 text-sm"
+        >
+          {isFetchingRuneInfo ? '更新中...' : 'Fetch 符文更新'}
+        </button>
+        <button
+          type="button"
           onClick={copySummary}
           className="px-3 py-2 rounded-lg bg-gray-700 text-white hover:bg-gray-600 text-sm"
         >
@@ -480,6 +586,23 @@ export function RuneSimulator({
         </button>
         {notice && <span className="text-sm text-green-400">{notice}</span>}
       </div>
+
+      {focusedRuneName && (
+        <div className="bg-gray-900 rounded-lg p-4">
+          <p className="text-sm text-gray-400 mb-1">符文信息</p>
+          <p className="text-white font-semibold">{focusedRuneName}</p>
+          {focusedRuneInfo ? (
+            <div className="text-sm text-gray-300 mt-2 whitespace-pre-line">
+              {focusedRuneInfo.shortDesc || focusedRuneInfo.longDesc || '暂无描述'}
+              {runeInfoVersion && (
+                <div className="text-xs text-gray-500 mt-2">来源版本: {runeInfoVersion}</div>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-500 mt-2">暂无符文信息，点击“Fetch 符文更新”获取最新数据。</p>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-gray-700 rounded-lg p-4 space-y-4">
@@ -510,15 +633,17 @@ export function RuneSimulator({
                   <RuneNode
                     key={rune}
                     name={rune}
+                    runeInfoMap={runeInfoMap}
                     active={primarySelections[slotIndex] === rune}
                     activeClass="bg-yellow-500 text-black"
-                    onClick={() =>
+                    onClick={() => {
                       setPrimarySelections((prev) => {
                         const next = [...prev];
                         next[slotIndex] = rune;
                         return next;
-                      })
-                    }
+                      });
+                      setFocusedRuneName(rune);
+                    }}
                   />
                 ))}
               </div>
@@ -554,15 +679,17 @@ export function RuneSimulator({
                   <RuneNode
                     key={rune}
                     name={rune}
+                    runeInfoMap={runeInfoMap}
                     active={secondarySelections[slotIndex] === rune}
                     activeClass="bg-cyan-400 text-black"
-                    onClick={() =>
+                    onClick={() => {
                       setSecondarySelections((prev) => {
                         const next = [...prev];
                         next[slotIndex] = rune;
                         return next;
-                      })
-                    }
+                      });
+                      setFocusedRuneName(rune);
+                    }}
                   />
                 ))}
               </div>

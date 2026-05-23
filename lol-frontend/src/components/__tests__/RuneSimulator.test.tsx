@@ -115,4 +115,46 @@ describe('RuneSimulator', () => {
     await Promise.resolve();
     expect(writeText).toHaveBeenCalledTimes(1);
   });
+
+  it('fetches rune info update and shows description', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ['99.1.1'],
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ([
+          {
+            slots: [
+              {
+                runes: [
+                  {
+                    name: '征服者',
+                    icon: 'perk-images/Styles/Precision/Conqueror/Conqueror.png',
+                    shortDesc: '<b>测试描述</b>',
+                    longDesc: '<i>长描述</i>',
+                  },
+                ],
+              },
+            ],
+          },
+        ]),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        json: async () => ([]),
+      });
+
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<RuneSimulator recommendedRunes={[]} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Fetch 符文更新' }));
+
+    await screen.findByText('已更新符文信息（99.1.1）');
+    fireEvent.click(screen.getByRole('button', { name: '征服者' }));
+    expect(screen.getByText('符文信息')).toBeInTheDocument();
+    expect(screen.getByText('测试描述')).toBeInTheDocument();
+    expect(screen.getByText('来源版本: 99.1.1')).toBeInTheDocument();
+  });
 });
