@@ -23,7 +23,7 @@ describe('LoLPatchAnnouncementCard', () => {
           sections: ['版本概要', '英雄', '道具'],
           takeaways: ['英雄：安比薩獲得上路和打野方向調整。'],
           details: {
-            英雄: ['安妮：Q 傷害提升', '安比薩：傷害提升', '安比薩：治療百分比提升'],
+            英雄: ['安妮：Q 傷害提升', '安比薩：傷害提升', '安比薩：治療百分比提升', '艾希：W 傷害提升', '加里欧：Q 冷卻調整'],
             道具: ['道具 多兰之盔：生命 ：110 ⇒ 140', '多蘭之盔：價格調整'],
             符文: ['冥火之触：傷害降低', '冥火之觸：冷卻時間調整'],
           },
@@ -57,6 +57,14 @@ describe('LoLPatchAnnouncementCard', () => {
       'src',
       'https://ddragon.leagueoflegends.com/cdn/16.10.1/img/champion/Annie.png'
     );
+    expect(screen.getByAltText('艾希 图标')).toHaveAttribute(
+      'src',
+      'https://ddragon.leagueoflegends.com/cdn/16.10.1/img/champion/Ashe.png'
+    );
+    expect(screen.getByAltText('加里欧 图标')).toHaveAttribute(
+      'src',
+      'https://ddragon.leagueoflegends.com/cdn/16.10.1/img/champion/Galio.png'
+    );
     expect(screen.getByAltText('道具 多兰之盔 图标')).toHaveAttribute(
       'src',
       'https://ddragon.leagueoflegends.com/cdn/16.10.1/img/item/1120.png'
@@ -68,6 +76,8 @@ describe('LoLPatchAnnouncementCard', () => {
     expect(screen.getByText(/安妮：Q 傷害提升/)).toBeInTheDocument();
     expect(screen.getByText(/安比薩：傷害提升/)).toBeInTheDocument();
     expect(screen.getByText(/安比薩：治療百分比提升/)).toBeInTheDocument();
+    expect(screen.getByText(/艾希：W 傷害提升/)).toBeInTheDocument();
+    expect(screen.getByText(/加里欧：Q 冷卻調整/)).toBeInTheDocument();
     expect(screen.getByText(/道具 多兰之盔：生命 ：110 ⇒ 140/)).toBeInTheDocument();
     expect(screen.getByText(/多蘭之盔：價格調整/)).toBeInTheDocument();
     expect(screen.getByText(/冥火之触：傷害降低/)).toBeInTheDocument();
