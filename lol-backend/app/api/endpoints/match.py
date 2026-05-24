@@ -471,7 +471,7 @@ async def fetch_player_matches(
                 if existing:
                     # Update existing match
                     existing.game_mode = info.get("gameMode", "")
-                    existing.game_type = info.get("gameType", "")
+                    existing.game_type = str(info.get("queueId") or info.get("gameType", ""))
                     existing.game_version = info.get("gameVersion", "")
                     existing.game_duration = game_duration
                     existing.game_start_timestamp = game_start
@@ -487,7 +487,7 @@ async def fetch_player_matches(
                     new_match = Match(
                         match_id=match_id,
                         game_mode=info.get("gameMode", ""),
-                        game_type=info.get("gameType", ""),
+                        game_type=str(info.get("queueId") or info.get("gameType", "")),
                         game_version=info.get("gameVersion", ""),
                         game_duration=game_duration,
                         game_start_timestamp=game_start,

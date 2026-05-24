@@ -331,7 +331,7 @@ function transformMatchSummary(apiMatch: ApiMatchSummary): Match {
 
   return {
     matchId: apiMatch.match_id,
-    queueType: apiMatch.game_mode || '',
+    queueType: apiMatch.game_type || apiMatch.game_mode || '',
     gameCreation: apiMatch.game_start_timestamp || Date.now(),
     gameDuration: apiMatch.game_duration,
     participants,
