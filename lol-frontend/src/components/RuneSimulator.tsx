@@ -371,6 +371,12 @@ export function RuneSimulator({
   const selectedRecommendedSetup =
     effectiveRecommendedSetups[Math.min(recommendedSetupIndex, Math.max(0, effectiveRecommendedSetups.length - 1))] ??
     null;
+  const displayedRecommendedRunes = useMemo(() => {
+    if (selectedRecommendedSetup?.primary_runes?.length) {
+      return [...selectedRecommendedSetup.primary_runes, ...selectedRecommendedSetup.secondary_runes];
+    }
+    return recommendedRunes;
+  }, [selectedRecommendedSetup, recommendedRunes]);
 
   useEffect(() => {
     if (recommendedSetupIndex >= effectiveRecommendedSetups.length) {
@@ -618,11 +624,11 @@ export function RuneSimulator({
 
       {isCollapsed ? null : (
         <>
-      {recommendedRunes.length > 0 && (
+      {displayedRecommendedRunes.length > 0 && (
         <div className="bg-gray-700 rounded-lg p-3">
           <p className="text-gray-300 text-sm mb-2">OP.GG 推荐</p>
           <div className="flex flex-wrap gap-2">
-            {recommendedRunes.map((rune, idx) => (
+            {displayedRecommendedRunes.map((rune, idx) => (
               <span key={`${rune}-${idx}`} className="bg-purple-600 text-white px-3 py-1 rounded-lg text-sm">
                 {rune}
               </span>
