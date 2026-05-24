@@ -407,6 +407,8 @@ export function ChampionPage() {
   const [queue, setQueue] = useState<QueueType>('RANKED_SOLO_5x5');
   const [countersCount, setCountersCount] = useState(5);
   const [role, setRole] = useState('');
+  const [opggForceRefresh, setOpggForceRefresh] = useState(false);
+  const [opggRefreshNonce, setOpggRefreshNonce] = useState(0);
 
   const {
     data: buildData,
@@ -419,7 +421,15 @@ export function ChampionPage() {
     queue,
     countersCount,
     role,
+    refresh: opggForceRefresh,
+    refreshNonce: opggRefreshNonce,
   });
+
+  useEffect(() => {
+    if (opggForceRefresh && !isFetching) {
+      setOpggForceRefresh(false);
+    }
+  }, [opggForceRefresh, isFetching]);
 
   if (!championName) {
     return (
@@ -431,6 +441,12 @@ export function ChampionPage() {
       </div>
     );
   }
+
+  const handleOpggRefresh = () => {
+    if (isFetching) return;
+    setOpggForceRefresh(true);
+    setOpggRefreshNonce((prev) => prev + 1);
+  };
 
   const renderContent = () => {
     if (isLoading || isFetching) {
@@ -559,6 +575,14 @@ export function ChampionPage() {
             )}
 
             <div className="ml-auto text-sm text-gray-500">
+              <button
+                type="button"
+                onClick={handleOpggRefresh}
+                disabled={isFetching}
+                className="mr-3 px-3 py-1.5 rounded bg-indigo-700 text-white hover:bg-indigo-600 disabled:opacity-50"
+              >
+                {isFetching && opggForceRefresh ? '强制更新中...' : '强制更新 OP.GG'}
+              </button>
               {buildData?.cached && buildData?.data && (
                 <span className="text-yellow-500">
                   缓存于 {formatLastUpdated(buildData.data.last_updated)}
