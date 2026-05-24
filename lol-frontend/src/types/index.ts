@@ -64,6 +64,8 @@ export interface OpggItem {
 
 export interface OpggCounter {
   champion_name: string;
+  champion_key?: string | null;
+  champion_icon_url?: string | null;
   win_rate: number | null;
   games: number;
   advantage?: number | null;  // Positive = good for this champ
@@ -71,6 +73,8 @@ export interface OpggCounter {
 
 export interface OpggSynergy {
   champion_name: string;
+  champion_key?: string | null;
+  champion_icon_url?: string | null;
   win_rate: number | null;
   pick_rate: number | null;
   games: number;

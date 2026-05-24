@@ -41,7 +41,39 @@ class OPGGNotFoundError(OPGGError):
 
 class OPGGScraper:
     """Scraper for OP.GG champion data including builds, counters, and win rates."""
-    CACHE_SCHEMA_VERSION = "v4"
+    CACHE_SCHEMA_VERSION = "v5"
+    CHAMPION_KEY_ALIASES = {
+        "wukong": "MonkeyKing",
+        "monkey king": "MonkeyKing",
+        "nunu": "Nunu",
+        "nunu and willump": "Nunu",
+        "nunu & willump": "Nunu",
+        "renata": "Renata",
+        "renata glasc": "Renata",
+        "belveth": "Belveth",
+        "bel'veth": "Belveth",
+        "kaisa": "Kaisa",
+        "kai'sa": "Kaisa",
+        "khazix": "Khazix",
+        "kha'zix": "Khazix",
+        "kogmaw": "KogMaw",
+        "kog'maw": "KogMaw",
+        "reksai": "RekSai",
+        "rek'sai": "RekSai",
+        "velkoz": "Velkoz",
+        "vel'koz": "Velkoz",
+        "chogath": "Chogath",
+        "cho'gath": "Chogath",
+        "dr mundo": "DrMundo",
+        "dr. mundo": "DrMundo",
+        "miss fortune": "MissFortune",
+        "master yi": "MasterYi",
+        "lee sin": "LeeSin",
+        "twisted fate": "TwistedFate",
+        "xin zhao": "XinZhao",
+        "jarvan iv": "JarvanIV",
+        "aurelion sol": "AurelionSol",
+    }
 
     # OP.GG base URLs (supports multiple regions)
     BASE_URLS = {
@@ -69,6 +101,7 @@ class OPGGScraper:
     UGG_PATCH_REGION = "1.5.0.json"
     CDRAGON_CHAMPION_SUMMARY = "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-summary.json"
     DDRAGON_VERSIONS_URL = "https://ddragon.leagueoflegends.com/api/versions.json"
+    DDRAGON_BASE = "https://ddragon.leagueoflegends.com/cdn"
     SHARD_ID_TO_NAME = {
         5008: "自适应之力",
         5005: "攻击速度",
@@ -114,6 +147,7 @@ class OPGGScraper:
         self._champion_id_to_name: Dict[int, str] = {}
         self._rune_id_to_name: Dict[int, str] = {}
         self._rune_meta_by_id: Dict[int, Dict[str, Any]] = {}
+        self._latest_ddragon_version: Optional[str] = None
 
     async def __aenter__(self):
         self._client = httpx.AsyncClient(
@@ -588,6 +622,7 @@ class OPGGScraper:
                 seen.add(partner_id)
                 results.append({
                     "champion_name": partner_name,
+                    "champion_key": self._to_champion_key(partner_name),
                     "win_rate": round((duo_wins / duo_games) * 100, 2),
                     "pick_rate": None,
                     "games": duo_games,
@@ -605,6 +640,63 @@ class OPGGScraper:
             return float(cleaned)
         except ValueError:
             return None
+
+    def _normalize_champion_name(self, name: str) -> str:
+        return (
+            name.strip()
+            .lower()
+            .replace("’", "'")
+            .replace(".", "")
+            .replace("&", "and")
+        )
+
+    def _sanitize_champion_key(self, name: str) -> str:
+        return re.sub(r"[^A-Za-z0-9]", "", name)
+
+    def _to_champion_key(self, champion_name: str) -> str:
+        normalized = self._normalize_champion_name(champion_name)
+        if not normalized:
+            return "Aatrox"
+        alias = self.CHAMPION_KEY_ALIASES.get(normalized)
+        if alias:
+            return alias
+        return self._sanitize_champion_key(champion_name) or "Aatrox"
+
+    async def _get_latest_ddragon_version(self) -> str:
+        if self._latest_ddragon_version:
+            return self._latest_ddragon_version
+        try:
+            versions = await self._fetch_json(self.DDRAGON_VERSIONS_URL)
+            if isinstance(versions, list) and versions:
+                parts = str(versions[0]).split(".")
+                if len(parts) >= 2:
+                    self._latest_ddragon_version = f"{parts[0]}.{parts[1]}.1"
+                else:
+                    self._latest_ddragon_version = str(versions[0])
+            else:
+                self._latest_ddragon_version = "16.1.1"
+        except Exception:
+            self._latest_ddragon_version = "16.1.1"
+        return self._latest_ddragon_version
+
+    async def _attach_champion_icon_urls(self, data: Dict[str, Any]) -> None:
+        version = await self._get_latest_ddragon_version()
+
+        def attach(entry: Dict[str, Any]) -> None:
+            if not isinstance(entry, dict):
+                return
+            key = entry.get("champion_key") or self._to_champion_key(str(entry.get("champion_name", "")))
+            key = self._sanitize_champion_key(str(key)) or "Aatrox"
+            entry["champion_key"] = key
+            entry["champion_icon_url"] = f"{self.DDRAGON_BASE}/{version}/img/champion/{key}.png"
+
+        matchups = data.get("matchups") or {}
+        for entry in matchups.get("counters", []):
+            attach(entry)
+        for entry in matchups.get("countered_by", []):
+            attach(entry)
+        for entry in data.get("synergies", []):
+            attach(entry)
 
     def _parse_build_page(self, html: str, filters: Dict[str, Any]) -> Dict[str, Any]:
         """Parse champion build page HTML."""
@@ -892,6 +984,7 @@ class OPGGScraper:
             win_rate = float(rate_match.group(1))
             current_rows.append({
                 "champion_name": champ_name,
+                "champion_key": self._to_champion_key(champ_name),
                 "win_rate": win_rate,
                 "games": games,
                 "advantage": win_rate - 50.0,
@@ -953,6 +1046,7 @@ class OPGGScraper:
                 advantage = win_rate - 50.0  # Positive means this champ wins
                 entry = {
                     "champion_name": champ_name,
+                    "champion_key": self._to_champion_key(champ_name),
                     "win_rate": win_rate,
                     "games": games,
                     "advantage": advantage,
@@ -1011,6 +1105,7 @@ class OPGGScraper:
 
             synergies.append({
                 "champion_name": champion_name,
+                "champion_key": self._to_champion_key(champion_name),
                 "pick_rate": pick_rate,
                 "win_rate": win_rate,
                 "games": games,
@@ -1059,6 +1154,7 @@ class OPGGScraper:
             cached = await self._get_from_cache(cache_key)
             if cached:
                 self._cache_hit_count += 1
+                await self._attach_champion_icon_urls(cached)
                 cached["cached"] = True
                 return cached
 
@@ -1235,6 +1331,8 @@ class OPGGScraper:
                 logger.warning("opgg_synergies_page_parse_failed", champ_slug=champ_slug, error=str(e))
                 data["synergies"] = []
 
+            await self._attach_champion_icon_urls(data)
+
             # Cache the result
             if use_cache:
                 await self._set_cache(cache_key, data)
@@ -1247,6 +1345,7 @@ class OPGGScraper:
             if use_cache:
                 stale = await self._get_from_cache(cache_key, stale=True)
                 if stale:
+                    await self._attach_champion_icon_urls(stale)
                     stale["cached"] = True
                     stale["stale"] = True
                     stale["cache_error"] = "rate_limited"

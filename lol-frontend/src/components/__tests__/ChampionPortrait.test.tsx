@@ -1,8 +1,19 @@
-import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, waitFor } from '@testing-library/react';
 import { ChampionPortrait } from '../ChampionPortrait';
 
+vi.mock('../../services/championIcon', () => ({
+  resolveChampionIconUrl: vi.fn(async (name: string) => `https://ddragon.leagueoflegends.com/cdn/16.10.1/img/champion/${name.replace(/[^A-Za-z0-9]/g, '') || 'Aatrox'}.png`),
+  resolveChampionIconUrlByKey: vi.fn(async (key: string) => `https://ddragon.leagueoflegends.com/cdn/16.10.1/img/champion/${key.replace(/[^A-Za-z0-9]/g, '') || 'Aatrox'}.png`),
+  getLatestDdragonVersion: vi.fn(async () => '16.10.1'),
+  getFallbackChampionIconUrl: vi.fn((version: string) => `https://ddragon.leagueoflegends.com/cdn/${version}/img/champion/Aatrox.png`),
+}));
+
 describe('ChampionPortrait', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it('renders with correct size class for sm', () => {
     const { container } = render(<ChampionPortrait championName="Ahri" size="sm" />);
     const div = container.querySelector('.w-10');
@@ -31,16 +42,19 @@ describe('ChampionPortrait', () => {
     expect(container.querySelector('.text-xs')).toBeNull();
   });
 
-  it('constructs correct CDN URL', () => {
+  it('uses resolved CDN URL from champion icon service', async () => {
     const { container } = render(<ChampionPortrait championName="Lee Sin" />);
-    const img = container.querySelector('img');
-    expect(img?.getAttribute('src')).toContain('ddragon.leagueoflegends.com/cdn/16.5.1/img/champion/Lee%20Sin.png');
+    await waitFor(() => {
+      const img = container.querySelector('img');
+      expect(img?.getAttribute('src')).toContain('ddragon.leagueoflegends.com/cdn/16.10.1/img/champion/LeeSin.png');
+    });
   });
 
-  it('handles champion name with special characters', () => {
+  it('handles champion name with special characters via resolver', async () => {
     const { container } = render(<ChampionPortrait championName="Kai'Sa" />);
-    const img = container.querySelector('img');
-    // The apostrophe is not encoded by encodeURIComponent
-    expect(img?.getAttribute('src')).toContain("Kai'Sa.png");
+    await waitFor(() => {
+      const img = container.querySelector('img');
+      expect(img?.getAttribute('src')).toContain('KaiSa.png');
+    });
   });
 });

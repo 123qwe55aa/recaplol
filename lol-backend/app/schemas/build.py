@@ -24,6 +24,8 @@ class SkillOrder(BaseModel):
 
 class ChampionCounter(BaseModel):
     champion_name: str
+    champion_key: Optional[str] = None
+    champion_icon_url: Optional[str] = None
     win_rate: float
     games: int
     advantage: Optional[float] = None  # Positive = good for this champ, negative = bad
@@ -31,6 +33,8 @@ class ChampionCounter(BaseModel):
 
 class ChampionSynergy(BaseModel):
     champion_name: str
+    champion_key: Optional[str] = None
+    champion_icon_url: Optional[str] = None
     win_rate: Optional[float] = None
     pick_rate: Optional[float] = None
     games: int = 0

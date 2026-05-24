@@ -305,7 +305,12 @@ function CountersSection({
               >
                 <div className="flex items-center gap-3">
                   <span className="text-gray-500 font-bold w-6">#{idx + 1}</span>
-                  <ChampionPortrait championName={counter.champion_name} size="sm" />
+                  <ChampionPortrait
+                    championName={counter.champion_name}
+                    championKey={counter.champion_key}
+                    championIconUrl={counter.champion_icon_url}
+                    size="sm"
+                  />
                   <span className="text-white font-medium">
                     {counter.champion_name}
                   </span>
@@ -342,7 +347,12 @@ function CountersSection({
               >
                 <div className="flex items-center gap-3">
                   <span className="text-gray-500 font-bold w-6">#{idx + 1}</span>
-                  <ChampionPortrait championName={counter.champion_name} size="sm" />
+                  <ChampionPortrait
+                    championName={counter.champion_name}
+                    championKey={counter.champion_key}
+                    championIconUrl={counter.champion_icon_url}
+                    size="sm"
+                  />
                   <span className="text-white font-medium">
                     {counter.champion_name}
                   </span>
@@ -383,7 +393,12 @@ function SynergiesSection({ data }: { data: NonNullable<import('../types').Champ
             >
               <div className="flex items-center gap-3">
                 <span className="text-gray-500 font-bold w-6">#{idx + 1}</span>
-                <ChampionPortrait championName={synergy.champion_name} size="sm" />
+                <ChampionPortrait
+                  championName={synergy.champion_name}
+                  championKey={synergy.champion_key}
+                  championIconUrl={synergy.champion_icon_url}
+                  size="sm"
+                />
                 <span className="text-white font-medium">{synergy.champion_name}</span>
               </div>
               <div className="text-right">
