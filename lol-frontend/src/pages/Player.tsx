@@ -1,9 +1,10 @@
 import { useParams, Link } from 'react-router-dom';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import { usePlayer, useChampionMastery } from '../hooks/usePlayer';
 import { useChampionBuild } from '../hooks/useChampionBuild';
-import { refreshPlayerByPuuid } from '../services/api';
+import { getPlayerMatchesWithDetails, refreshPlayerByPuuid } from '../services/api';
 import { PlayerCard } from '../components/PlayerCard';
 import { ChampionPortrait } from '../components/ChampionPortrait';
 import { LoLVersionCard } from '../components/LoLVersionCard';
@@ -23,7 +24,33 @@ export function PlayerPage() {
   const { gameName, tagLine } = useParams<{ gameName: string; tagLine: string }>();
   const { data: player, isLoading, error, refetch } = usePlayer(gameName!, tagLine!, !!gameName && !!tagLine);
   const { data: masteryData } = useChampionMastery(player?.puuid ?? '', !!player?.puuid);
-  const primaryChampionName = masteryData?.champion_masteries?.[0]?.championName ?? '';
+  const masteryPrimaryChampionName = masteryData?.champion_masteries?.[0]?.championName ?? '';
+  const { data: matchesWithDetails } = useQuery({
+    queryKey: ['player-fallback-primary', player?.puuid],
+    queryFn: () => getPlayerMatchesWithDetails(player!.puuid, 20),
+    enabled: !!player?.puuid && !masteryPrimaryChampionName,
+    staleTime: 2 * 60 * 1000,
+  });
+  const fallbackPrimaryChampionName = useMemo(() => {
+    if (!matchesWithDetails?.matches?.length || !player?.puuid) return '';
+    const counts = new Map<string, number>();
+    for (const match of matchesWithDetails.matches) {
+      const me = match.participants.find((p) => p.puuid === player.puuid);
+      const name = me?.championName?.trim();
+      if (!name) continue;
+      counts.set(name, (counts.get(name) ?? 0) + 1);
+    }
+    let bestName = '';
+    let bestCount = 0;
+    for (const [name, count] of counts.entries()) {
+      if (count > bestCount) {
+        bestName = name;
+        bestCount = count;
+      }
+    }
+    return bestName;
+  }, [matchesWithDetails, player?.puuid]);
+  const primaryChampionName = masteryPrimaryChampionName || fallbackPrimaryChampionName;
   const {
     data: opggBuildResp,
     isLoading: isOpggBuildLoading,
@@ -85,11 +112,13 @@ export function PlayerPage() {
   const matchRegion = getRegionalRouting(player.tagLine);
   const opggBuild = opggBuildResp?.data ?? null;
   const opggStatusText = !primaryChampionName
-    ? 'OP.GG: 暂无可查询英雄（缺少熟练度数据）'
+    ? 'OP.GG: 暂无可查询英雄（缺少熟练度与比赛数据）'
     : isOpggBuildLoading
       ? `OP.GG: 正在查询 ${primaryChampionName}`
       : isOpggBuildError
         ? `OP.GG: ${primaryChampionName} 查询失败`
+        : !masteryPrimaryChampionName
+          ? `OP.GG: ${primaryChampionName}（最近比赛回退）`
         : opggBuild?.rune_setup?.primary_runes?.length
           ? `OP.GG: ${primaryChampionName} 已返回可应用符文`
           : opggBuild?.runes?.length

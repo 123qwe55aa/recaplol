@@ -10,6 +10,7 @@ const mockUseChampionBuild = vi.fn();
 const mockUseLolVersion = vi.fn();
 const mockUsePatchAnnouncement = vi.fn();
 const mockUseCoachChat = vi.fn();
+const mockUseQuery = vi.fn();
 
 vi.mock('../../hooks/usePlayer', () => ({
   usePlayer: () => mockUsePlayer(),
@@ -32,8 +33,13 @@ vi.mock('../../hooks/useCoach', () => ({
   useCoachChat: () => mockUseCoachChat(),
 }));
 
+vi.mock('@tanstack/react-query', () => ({
+  useQuery: () => mockUseQuery(),
+}));
+
 vi.mock('../../services/api', () => ({
   refreshPlayerByPuuid: vi.fn(),
+  getPlayerMatchesWithDetails: vi.fn(),
 }));
 
 const player: Player = {
@@ -70,6 +76,7 @@ describe('PlayerPage', () => {
     });
     mockUseChampionMastery.mockReturnValue({ data: { champion_masteries: [] } });
     mockUseChampionBuild.mockReturnValue({ data: { data: null } });
+    mockUseQuery.mockReturnValue({ data: null });
     mockUseLolVersion.mockReturnValue({
       data: '26.10.1',
       isLoading: false,
