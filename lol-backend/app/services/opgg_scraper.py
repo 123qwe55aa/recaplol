@@ -69,6 +69,15 @@ class OPGGScraper:
     UGG_PATCH_REGION = "1.5.0.json"
     CDRAGON_CHAMPION_SUMMARY = "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-summary.json"
     DDRAGON_VERSIONS_URL = "https://ddragon.leagueoflegends.com/api/versions.json"
+    SHARD_ID_TO_NAME = {
+        5008: "自适应之力",
+        5005: "攻击速度",
+        5007: "冷却缩减",
+        5002: "护甲",
+        5003: "魔抗",
+        5001: "生命值",
+        5011: "移动速度",
+    }
 
     # Default headers to mimic browser
     HEADERS = {
@@ -767,6 +776,23 @@ class OPGGScraper:
             if rune_name and rune_name not in [r["name"] for r in runes]:
                 runes.append({"name": rune_name.strip()})
 
+        # Parse shard ids from current OP.GG app-router script payload.
+        shard_ids: List[int] = []
+        for token in re.findall(r"/perk/(\d+)\.png", html):
+            try:
+                perk_id = int(token)
+            except ValueError:
+                continue
+            if perk_id not in self.SHARD_ID_TO_NAME:
+                continue
+            if perk_id in shard_ids:
+                continue
+            shard_ids.append(perk_id)
+            if len(shard_ids) >= 3:
+                break
+        if shard_ids:
+            result["_shard_ids"] = shard_ids
+
         # Fallback for current OP.GG app-router pages where rune imgs are embedded in script payload.
         rune_ids: List[int] = []
         if not runes:
@@ -1031,8 +1057,22 @@ class OPGGScraper:
                     data["rune_setup"] = {
                         "primary_runes": resolved[:4],
                         "secondary_runes": resolved[4:6],
+                        "stat_shards": [],
                     }
                     data["rune_setup_valid"] = True
+
+            shard_ids = data.pop("_shard_ids", [])
+            shard_names = [self.SHARD_ID_TO_NAME.get(shard_id) for shard_id in shard_ids]
+            shard_names = [name for name in shard_names if name]
+            if shard_names:
+                if not data.get("rune_setup"):
+                    data["rune_setup"] = {
+                        "primary_runes": [],
+                        "secondary_runes": [],
+                        "stat_shards": shard_names[:3],
+                    }
+                else:
+                    data["rune_setup"]["stat_shards"] = shard_names[:3]
 
             # Try to also get counters (both directions)
             vs_url = self._build_vs_url(champ_slug, region, queue, tier)

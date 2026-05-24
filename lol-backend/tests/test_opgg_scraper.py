@@ -62,7 +62,7 @@ SAMPLE_BUILD_PAGE_WITH_PERK_ID_RUNES_HTML = """
 <html>
 <body>
     <script>
-        self.__next_f.push([1,"/perk/8112.png /perk/8128.png /perk/9923.png /perk/8138.png /perk/8210.png /perk/8236.png"]);
+        self.__next_f.push([1,"/perk/8112.png /perk/8128.png /perk/9923.png /perk/8138.png /perk/8210.png /perk/8236.png /perk/5008.png /perk/5008.png /perk/5002.png"]);
     </script>
 </body>
 </html>
@@ -277,6 +277,7 @@ class TestOPGGScraper:
             "perk_8112", "perk_8128", "perk_9923", "perk_8138", "perk_8210", "perk_8236"
         ]
         assert result["rune_setup_valid"] is True
+        assert result["_shard_ids"] == [5008, 5002]
 
     def test_parse_vs_page(self, scraper, filters):
         """Test parsing VS (counter matchups) page."""

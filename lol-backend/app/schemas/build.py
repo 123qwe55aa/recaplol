@@ -44,6 +44,7 @@ class MatchupList(BaseModel):
 class RuneSetup(BaseModel):
     primary_runes: List[str] = Field(default_factory=list)
     secondary_runes: List[str] = Field(default_factory=list)
+    stat_shards: List[str] = Field(default_factory=list)
 
 
 class SummonerSpellOption(BaseModel):

@@ -189,6 +189,7 @@ interface RunePresetRecord extends RunePreset {
 interface RecommendedRuneSetup {
   primary_runes: string[];
   secondary_runes: string[];
+  stat_shards?: string[];
 }
 
 interface RuneInfo {
@@ -457,6 +458,15 @@ export function RuneSimulator({
     setSecondaryPathId(matchSecondaryPath.id);
     setPrimarySelections(primaryNext);
     setSecondarySelections(secondaryNext);
+    if (recommendedSetup.stat_shards?.length) {
+      const shardNext: (string | null)[] = [null, null, null];
+      recommendedSetup.stat_shards.slice(0, 3).forEach((shardName, rowIdx) => {
+        if (SHARDS[rowIdx]?.includes(shardName)) {
+          shardNext[rowIdx] = shardName;
+        }
+      });
+      setShardSelections(shardNext);
+    }
     setNotice('已套用 OP.GG 符文推荐');
   };
 

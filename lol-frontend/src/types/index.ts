@@ -97,6 +97,7 @@ export interface OpggBuild {
   rune_setup?: {
     primary_runes: string[];
     secondary_runes: string[];
+    stat_shards?: string[];
   } | null;
   rune_setup_valid?: boolean;
   matchups: OpggMatchups;
