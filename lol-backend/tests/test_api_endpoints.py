@@ -364,6 +364,59 @@ class TestPlayerEndpoints:
 
             app.dependency_overrides.clear()
 
+    def test_get_player_by_summoner_same_puuid_updates_when_summoner_id_missing(self, mock_db):
+        """Do not early-return cached SEA player when summoner_id is missing."""
+        stale_player = Player(
+            puuid="same-puuid",
+            summoner_id=None,
+            summoner_name="TestPlayer",
+            tag_line="TW2",
+            profile_icon_id=1,
+            summoner_level=50,
+            revision_date=1700000000000,
+        )
+        refreshed_player = Player(
+            puuid="same-puuid",
+            summoner_id="summoner-new",
+            summoner_name="TestPlayer",
+            tag_line="TW2",
+            profile_icon_id=2,
+            summoner_level=55,
+            revision_date=1700000001000,
+        )
+
+        with patch("app.api.endpoints.player.PlayerRepository") as MockRepo:
+            mock_repo = MockRepo.return_value
+            mock_repo.get_by_summoner_name = AsyncMock(return_value=stale_player)
+            mock_repo.upsert_player = AsyncMock(return_value=refreshed_player)
+
+            mock_riot_client = AsyncMock()
+            mock_riot_client.__aenter__.return_value = mock_riot_client
+            mock_riot_client.__aexit__.return_value = None
+            mock_riot_client.get_puuid_by_riot_id = AsyncMock(return_value={"puuid": "same-puuid"})
+            mock_riot_client.get_summoner_by_puuid = AsyncMock(return_value={
+                "name": "TestPlayer",
+                "id": "summoner-new",
+                "profileIconId": 2,
+                "summonerLevel": 55,
+                "revisionDate": 1700000001000,
+            })
+            mock_riot_client.get_player_ranked_stats = AsyncMock(return_value=[])
+
+            app = create_test_app()
+            from app.db.database import get_db
+            app.dependency_overrides[get_db] = lambda: mock_db
+
+            with patch("app.api.endpoints.player.get_riot_client", return_value=mock_riot_client):
+                with TestClient(app) as client:
+                    response = client.get("/players/by-summoner/TestPlayer?tag_line=TW2")
+                    assert response.status_code == 200
+                    data = response.json()
+                    assert data["summoner_id"] == "summoner-new"
+
+            mock_repo.upsert_player.assert_awaited_once()
+            app.dependency_overrides.clear()
+
     def test_get_player_by_summoner_refreshes_stale_sea_puuid(self, mock_db):
         """Test SEA player lookup returns the latest Riot Account PUUID."""
         stale_player = Player(

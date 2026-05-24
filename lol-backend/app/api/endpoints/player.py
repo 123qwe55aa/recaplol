@@ -239,7 +239,7 @@ async def get_player_by_summoner(
                 )
             puuid = account_data["puuid"]
 
-            if player and player.puuid == puuid:
+            if player and player.puuid == puuid and player.summoner_id:
                 return _build_player_response(player)
 
             # Get summoner data by PUUID (correct platform for this tag line)
