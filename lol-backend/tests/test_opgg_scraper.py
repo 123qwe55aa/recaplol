@@ -277,7 +277,8 @@ class TestOPGGScraper:
             "perk_8112", "perk_8128", "perk_9923", "perk_8138", "perk_8210", "perk_8236"
         ]
         assert result["rune_setup_valid"] is True
-        assert result["_shard_ids"] == [5008, 5002]
+        assert 5008 in result["_perk_ids"]
+        assert 5002 in result["_perk_ids"]
 
     def test_parse_vs_page(self, scraper, filters):
         """Test parsing VS (counter matchups) page."""

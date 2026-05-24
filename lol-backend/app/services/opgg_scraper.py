@@ -776,31 +776,23 @@ class OPGGScraper:
             if rune_name and rune_name not in [r["name"] for r in runes]:
                 runes.append({"name": rune_name.strip()})
 
-        # Parse shard ids from current OP.GG app-router script payload.
-        shard_ids: List[int] = []
+        # Parse raw perk ids from current OP.GG app-router script payload.
+        perk_ids: List[int] = []
         for token in re.findall(r"/perk/(\d+)\.png", html):
             try:
                 perk_id = int(token)
             except ValueError:
                 continue
-            if perk_id not in self.SHARD_ID_TO_NAME:
-                continue
-            if perk_id in shard_ids:
-                continue
-            shard_ids.append(perk_id)
-            if len(shard_ids) >= 3:
+            perk_ids.append(perk_id)
+            if len(perk_ids) >= 300:
                 break
-        if shard_ids:
-            result["_shard_ids"] = shard_ids
+        if perk_ids:
+            result["_perk_ids"] = perk_ids
 
         # Fallback for current OP.GG app-router pages where rune imgs are embedded in script payload.
         rune_ids: List[int] = []
         if not runes:
-            for token in re.findall(r"/perk/(\d+)\.png", html):
-                try:
-                    perk_id = int(token)
-                except ValueError:
-                    continue
+            for perk_id in perk_ids:
                 if perk_id < 8000:  # Ignore non-rune assets.
                     continue
                 if perk_id in rune_ids:
@@ -1061,7 +1053,29 @@ class OPGGScraper:
                     }
                     data["rune_setup_valid"] = True
 
-            shard_ids = data.pop("_shard_ids", [])
+            shard_ids: List[int] = []
+            perk_ids = data.pop("_perk_ids", [])
+            if perk_ids:
+                # Prefer shards that appear after the selected 6 runes in stream order.
+                anchor = -1
+                if rune_ids:
+                    remaining = list(selected)
+                    for idx, perk_id in enumerate(perk_ids):
+                        if remaining and perk_id == remaining[0]:
+                            remaining.pop(0)
+                            anchor = idx
+                            if not remaining:
+                                break
+                scan = perk_ids[anchor + 1:] if anchor >= 0 else perk_ids
+                for perk_id in scan:
+                    if perk_id not in self.SHARD_ID_TO_NAME:
+                        continue
+                    if perk_id in shard_ids:
+                        continue
+                    shard_ids.append(perk_id)
+                    if len(shard_ids) >= 3:
+                        break
+
             shard_names = [self.SHARD_ID_TO_NAME.get(shard_id) for shard_id in shard_ids]
             shard_names = [name for name in shard_names if name]
             if shard_names:
