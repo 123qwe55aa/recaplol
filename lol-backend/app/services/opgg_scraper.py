@@ -41,7 +41,7 @@ class OPGGNotFoundError(OPGGError):
 
 class OPGGScraper:
     """Scraper for OP.GG champion data including builds, counters, and win rates."""
-    CACHE_SCHEMA_VERSION = "v3"
+    CACHE_SCHEMA_VERSION = "v4"
 
     # OP.GG base URLs (supports multiple regions)
     BASE_URLS = {
