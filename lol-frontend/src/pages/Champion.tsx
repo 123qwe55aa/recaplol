@@ -412,6 +412,7 @@ export function ChampionPage() {
   const [role, setRole] = useState('');
   const [opggForceRefresh, setOpggForceRefresh] = useState(false);
   const [opggRefreshNonce, setOpggRefreshNonce] = useState(0);
+  const [lastForceRefreshAt, setLastForceRefreshAt] = useState<Date | null>(null);
 
   const {
     data: buildData,
@@ -447,6 +448,7 @@ export function ChampionPage() {
 
   const handleOpggRefresh = () => {
     if (isFetching) return;
+    setLastForceRefreshAt(new Date());
     setOpggForceRefresh(true);
     setOpggRefreshNonce((prev) => prev + 1);
   };
@@ -590,6 +592,11 @@ export function ChampionPage() {
                 <span className="text-yellow-500">
                   缓存于 {formatLastUpdated(buildData.data.last_updated)}
                   {buildData.data.stale && ' (过期)'}
+                </span>
+              )}
+              {lastForceRefreshAt && (
+                <span className="text-gray-400 ml-3">
+                  上次强制刷新请求: {lastForceRefreshAt.toLocaleString('zh-CN', { hour12: false })}
                 </span>
               )}
             </div>
