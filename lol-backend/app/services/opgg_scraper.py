@@ -41,6 +41,7 @@ class OPGGNotFoundError(OPGGError):
 
 class OPGGScraper:
     """Scraper for OP.GG champion data including builds, counters, and win rates."""
+    CACHE_SCHEMA_VERSION = "v2"
 
     # OP.GG base URLs (supports multiple regions)
     BASE_URLS = {
@@ -146,7 +147,7 @@ class OPGGScraper:
 
     def _get_cache_key(self, champ_slug: str, filters: Dict[str, Any]) -> str:
         """Generate cache key for request."""
-        key_data = f"{champ_slug}:{json.dumps(filters, sort_keys=True)}"
+        key_data = f"{self.CACHE_SCHEMA_VERSION}:{champ_slug}:{json.dumps(filters, sort_keys=True)}"
         return f"opgg:champion:{hashlib.md5(key_data.encode()).hexdigest()}"
 
     async def _fetch_page(self, url: str, champ_slug: str, filters: Dict[str, Any]) -> str:
