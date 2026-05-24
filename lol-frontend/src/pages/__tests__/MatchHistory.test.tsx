@@ -9,6 +9,7 @@ const fetchPlayerMatches = vi.fn();
 const fetchMatchTimeline = vi.fn();
 const generateAiMatchRecap = vi.fn();
 const getSavedAiMatchRecap = vi.fn();
+const mockUseRiotStatus = vi.fn();
 
 vi.mock('../../services/api', () => ({
   getPlayerMatchesWithDetails: (...args: unknown[]) => getPlayerMatchesWithDetails(...args),
@@ -16,6 +17,10 @@ vi.mock('../../services/api', () => ({
   fetchMatchTimeline: (...args: unknown[]) => fetchMatchTimeline(...args),
   generateAiMatchRecap: (...args: unknown[]) => generateAiMatchRecap(...args),
   getSavedAiMatchRecap: (...args: unknown[]) => getSavedAiMatchRecap(...args),
+}));
+
+vi.mock('../../hooks/useRiotStatus', () => ({
+  useRiotStatus: (...args: unknown[]) => mockUseRiotStatus(...args),
 }));
 
 function LocationProbe() {
@@ -59,6 +64,8 @@ describe('MatchHistory', () => {
         resource_deaths: 1,
         cs_per_min_at_10: 5,
         gold_at_10: 3000,
+        team_gold_delta_at_10: -600,
+        team_gold_delta_at_14: 1200,
       },
       deterministic_insights: [
         {
@@ -83,6 +90,11 @@ describe('MatchHistory', () => {
         next_game_focus: '资源前 90 秒先补视野。',
         follow_up_questions: ['这波小龙前应该怎么站位？'],
       },
+    });
+    mockUseRiotStatus.mockReturnValue({
+      data: { id: 'NA1', name: 'North America', maintenances: [], incidents: [] },
+      isLoading: false,
+      error: null,
     });
   });
 
@@ -174,6 +186,8 @@ describe('MatchHistory', () => {
     });
     expect(screen.getByText('这局阿狸的问题集中在小龙前阵亡。')).toBeInTheDocument();
     expect(screen.getByText('资源前 90 秒先补视野。')).toBeInTheDocument();
+    expect(screen.getByText('-600')).toBeInTheDocument();
+    expect(screen.getByText('+1200')).toBeInTheDocument();
   });
 
   it('shows saved AI recap when match history is opened again', async () => {
@@ -234,5 +248,25 @@ describe('MatchHistory', () => {
       expect(getSavedAiMatchRecap).toHaveBeenCalledWith('NA1_123', 'test-puuid');
     });
     expect(await screen.findByText('这是已经保存过的 AI 复盘。')).toBeInTheDocument();
+  });
+
+  it('shows riot outage hint when sync fails during platform incidents', async () => {
+    fetchPlayerMatches.mockRejectedValue(new Error('sync failed'));
+    mockUseRiotStatus.mockReturnValue({
+      data: {
+        id: 'NA1',
+        name: 'North America',
+        maintenances: [{ id: 1 }],
+        incidents: [{ id: 2 }],
+      },
+      isLoading: false,
+      error: null,
+    });
+
+    renderPage();
+
+    expect(
+      await screen.findByText(/Riot 当前平台可能有维护或异常/i)
+    ).toBeInTheDocument();
   });
 });

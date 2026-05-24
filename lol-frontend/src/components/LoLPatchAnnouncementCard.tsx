@@ -1,5 +1,12 @@
 import { usePatchAnnouncement } from '../hooks/usePatchAnnouncement';
+import { useLolVersion } from '../hooks/useLolVersion';
 import { useState } from 'react';
+import {
+  buildChampionIconUrl,
+  buildDdragonAssetUrl,
+  buildItemIconUrl,
+  DEFAULT_DDRAGON_VERSION,
+} from '../services/ddragon';
 
 function formatDate(value?: string | null) {
   if (!value) return '最新公告';
@@ -12,7 +19,9 @@ function formatDate(value?: string | null) {
 
 export function LoLPatchAnnouncementCard() {
   const { data: announcement, isLoading, error } = usePatchAnnouncement();
+  const { data: lolVersion } = useLolVersion();
   const [expanded, setExpanded] = useState(false);
+  const ddragonVersion = lolVersion || DEFAULT_DDRAGON_VERSION;
   const details = announcement?.analysis?.details ?? {};
   const categoryMetrics = buildCategoryMetrics(details);
 
@@ -122,7 +131,7 @@ export function LoLPatchAnnouncementCard() {
                       {buildEntityGroups(items).map((group) => (
                         <div key={`${section}-${group.name}`} className="rounded border border-gray-800 bg-gray-900/60 p-2">
                           <p className="flex items-center gap-2 text-sm font-semibold text-gray-100">
-                            <EntityIcon section={section} item={group.name} />
+                            <EntityIcon section={section} item={group.name} version={ddragonVersion} />
                             <span>{group.name}</span>
                           </p>
                           <ul className="mt-2 space-y-1 text-sm text-gray-300">
@@ -142,7 +151,7 @@ export function LoLPatchAnnouncementCard() {
                         <li key={`${section}-${item}`}>
                           <span className={toneClass(item)}>{toneLabel(item)}</span>
                           <span className="ml-2 inline-flex items-center gap-2">
-                            <EntityIcon section={section} item={item} />
+                            <EntityIcon section={section} item={item} version={ddragonVersion} />
                             <span>• {item}</span>
                           </span>
                         </li>
@@ -208,7 +217,7 @@ function buildEntityGroups(items: string[]) {
   }));
 }
 
-function EntityIcon({ section, item }: { section: string; item: string }) {
+function EntityIcon({ section, item, version }: { section: string; item: string; version: string }) {
   const entityName = item.split(/[:：]/)[0]?.trim();
   const normalizedName = entityName ? normalizeEntityName(entityName) : '';
   const heroKey = resolveMappedKey(normalizedName, CHAMPION_ICON_MAP);
@@ -221,7 +230,7 @@ function EntityIcon({ section, item }: { section: string; item: string }) {
   if (section === '英雄' && heroId) {
     return (
       <img
-        src={`https://ddragon.leagueoflegends.com/cdn/${DDRAGON_CDN_VERSION}/img/champion/${heroId}.png`}
+        src={buildChampionIconUrl(version, heroId)}
         alt={`${entityName} 图标`}
         className="h-5 w-5 rounded object-cover"
         loading="lazy"
@@ -231,7 +240,7 @@ function EntityIcon({ section, item }: { section: string; item: string }) {
   if (section === '道具' && itemId) {
     return (
       <img
-        src={`https://ddragon.leagueoflegends.com/cdn/${DDRAGON_CDN_VERSION}/img/item/${itemId}.png`}
+        src={buildItemIconUrl(Number(itemId), version)}
         alt={`${entityName} 图标`}
         className="h-5 w-5 rounded object-cover"
         loading="lazy"
@@ -291,8 +300,6 @@ function toSimplified(value: string) {
     .replace(/劍/g, '剑')
     .replace(/盔/g, '盔');
 }
-
-const DDRAGON_CDN_VERSION = '16.10.1';
 
 const CHAMPION_ICON_MAP: Record<string, string> = {
   厄薩斯: 'Aatrox',
@@ -424,14 +431,14 @@ const ITEM_ICON_MAP: Record<string, string> = {
 };
 
 const RUNE_ICON_MAP: Record<string, string> = {
-  冥火之觸: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Sorcery/Scorch/Scorch.png',
-  不死之握: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Resolve/GraspOfTheUndying/GraspOfTheUndying.png',
-  先攻: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Inspiration/FirstStrike/FirstStrike.png',
-  致命節奏: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Precision/LethalTempo/LethalTempoTemp.png',
-  征服者: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Precision/Conqueror/Conqueror.png',
-  電刑: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Domination/Electrocute/Electrocute.png',
-  相位衝擊: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Sorcery/PhaseRush/PhaseRush.png',
-  奧術彗星: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Sorcery/ArcaneComet/ArcaneComet.png',
+  冥火之觸: buildDdragonAssetUrl('perk-images/Styles/Sorcery/Scorch/Scorch.png'),
+  不死之握: buildDdragonAssetUrl('perk-images/Styles/Resolve/GraspOfTheUndying/GraspOfTheUndying.png'),
+  先攻: buildDdragonAssetUrl('perk-images/Styles/Inspiration/FirstStrike/FirstStrike.png'),
+  致命節奏: buildDdragonAssetUrl('perk-images/Styles/Precision/LethalTempo/LethalTempoTemp.png'),
+  征服者: buildDdragonAssetUrl('perk-images/Styles/Precision/Conqueror/Conqueror.png'),
+  電刑: buildDdragonAssetUrl('perk-images/Styles/Domination/Electrocute/Electrocute.png'),
+  相位衝擊: buildDdragonAssetUrl('perk-images/Styles/Sorcery/PhaseRush/PhaseRush.png'),
+  奧術彗星: buildDdragonAssetUrl('perk-images/Styles/Sorcery/ArcaneComet/ArcaneComet.png'),
 };
 
 const ENTITY_ALIASES: Record<string, string> = {

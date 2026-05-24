@@ -11,9 +11,15 @@ import type {
   CoachReportResponse,
   MatchRecapResponse,
   MatchTimelineResponse,
+  RiotPlatformStatus,
   QueueType,
   RegionCode,
 } from '../types';
+import {
+  buildItemIconUrl,
+  DDRAGON_VERSIONS_URL,
+  loadChampionByIdMap,
+} from './ddragon';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
@@ -26,7 +32,6 @@ const MATCH_SYNC_TIMEOUT_MS = 60000;
 const AI_MATCH_RECAP_TIMEOUT_MS = 600000;
 const AI_COACH_REPORT_TIMEOUT_MS = 600000;
 const AI_COACH_CHAT_TIMEOUT_MS = 600000;
-const DDRAGON_VERSIONS_URL = 'https://ddragon.leagueoflegends.com/api/versions.json';
 
 // API response types (snake_case from backend)
 interface ApiPlayerResponse {
@@ -231,26 +236,16 @@ async function loadChampionIdToNameMap(): Promise<Record<number, string>> {
   if (championIdToNameCache) return championIdToNameCache;
 
   try {
-    const versionsRes = await fetch('https://ddragon.leagueoflegends.com/api/versions.json');
+    const versionsRes = await fetch(DDRAGON_VERSIONS_URL);
     if (!versionsRes.ok) throw new Error('versions fetch failed');
     const versions = (await versionsRes.json()) as string[];
     const latestVersion = versions?.[0];
     if (!latestVersion) throw new Error('version missing');
 
-    const championRes = await fetch(
-      `https://ddragon.leagueoflegends.com/cdn/${latestVersion}/data/en_US/champion.json`
-    );
-    if (!championRes.ok) throw new Error('champion.json fetch failed');
-    const championData = await championRes.json() as {
-      data?: Record<string, { key?: string; id?: string }>;
-    };
-
     const map: Record<number, string> = {};
-    for (const champ of Object.values(championData.data ?? {})) {
-      const key = Number(champ.key);
-      if (Number.isFinite(key) && champ.id) {
-        map[key] = champ.id;
-      }
+    const championById = await loadChampionByIdMap(latestVersion);
+    for (const champ of Object.values(championById)) {
+      map[champ.key] = champ.id;
     }
 
     championIdToNameCache = Object.keys(map).length > 0 ? map : CHAMPION_ID_TO_NAME_FALLBACK;
@@ -295,14 +290,10 @@ export const getPlayerMatches = async (puuid: string, limit = 20) => {
   return transformMatchList(data);
 };
 
-const DDRAGON_BASE = 'https://ddragon.leagueoflegends.com/cdn';
-
 function getItemImages(itemIds: number[], gameVersion: string): string[] {
-  const parts = gameVersion?.split('.');
-  const version = parts ? `${parts[0]}.${parts[1]}.1` : '16.1'; // e.g. "16.7.760.9485" -> "16.7.1"
   return itemIds
     .filter(id => id > 0)
-    .map(id => `${DDRAGON_BASE}/${version}/img/item/${id}.png`);
+    .map(id => buildItemIconUrl(id, gameVersion || '16.1.1'));
 }
 
 function transformMatchSummary(apiMatch: ApiMatchSummary): Match {
@@ -516,5 +507,12 @@ export const getLatestLolVersion = async (): Promise<string> => {
 
 export const getLatestPatchAnnouncement = async (): Promise<PatchNoteAnnouncement> => {
   const { data } = await api.get<PatchNoteAnnouncement>('/patch-notes/latest');
+  return data;
+};
+
+export const getRiotPlatformStatus = async (platform: string): Promise<RiotPlatformStatus> => {
+  const { data } = await api.get<RiotPlatformStatus>(
+    `/riot/status/${encodeURIComponent(platform)}`
+  );
   return data;
 };

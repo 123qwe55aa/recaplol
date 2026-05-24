@@ -11,11 +11,17 @@ import {
 } from '../services/api';
 import { MatchCard } from '../components/MatchCard';
 import { usePlayerStore } from '../stores/playerStore';
+import { useRiotStatus } from '../hooks/useRiotStatus';
 import type { CoachChatResponse, CoachMatchRecapResponse } from '../types';
 
 function statText(value: number | null | undefined, suffix = '') {
   if (value === null || value === undefined) return '-';
   return `${value}${suffix}`;
+}
+
+function signedStatText(value: number | null | undefined) {
+  if (value === null || value === undefined) return '-';
+  return value > 0 ? `+${value}` : `${value}`;
 }
 
 export function MatchHistory() {
@@ -29,6 +35,11 @@ export function MatchHistory() {
 
   const resolvedPuuid = puuid || currentPlayer?.puuid || '';
   const region = searchParams.get('region') || 'americas';
+  const statusPlatform = (
+    currentPlayer?.tagLine
+    || (region === 'europe' ? 'euw1' : region === 'asia' ? 'kr' : region === 'sea' ? 'tw2' : 'na1')
+  ).toLowerCase();
+  const { data: riotStatus } = useRiotStatus(statusPlatform);
 
   const { data: matchData, isLoading, error, refetch } = useQuery({
     queryKey: ['matches-with-details', resolvedPuuid],
@@ -42,6 +53,7 @@ export function MatchHistory() {
   });
   const syncedNewMatches = syncMatches.data?.fetched ?? 0;
   const syncedTotalMatches = syncMatches.data?.match_count ?? 0;
+  const hasRiotPlatformIssues = ((riotStatus?.incidents?.length ?? 0) + (riotStatus?.maintenances?.length ?? 0)) > 0;
   const recapMutation = useMutation({
     mutationFn: async (matchId: string) => {
       await fetchMatchTimeline(matchId);
@@ -155,7 +167,11 @@ export function MatchHistory() {
             <span className="text-gray-300">未获取到可同步战绩</span>
           )}
           {syncMatches.isError && (
-            <span className="text-red-400">同步最新战绩失败，当前显示本地已有记录</span>
+            <span className="text-red-400">
+              {hasRiotPlatformIssues
+                ? '同步最新战绩失败，Riot 当前平台可能有维护或异常，先显示本地已有记录'
+                : '同步最新战绩失败，当前显示本地已有记录'}
+            </span>
           )}
         </div>
 
@@ -174,7 +190,7 @@ export function MatchHistory() {
                 />
                 {recap && (
                   <section className="border border-gray-700 bg-gray-800/60 rounded-lg p-4">
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 text-sm">
                       <div>
                         <p className="text-gray-500">10 分钟补刀</p>
                         <p className="text-white font-semibold">
@@ -185,6 +201,18 @@ export function MatchHistory() {
                         <p className="text-gray-500">10 分钟经济</p>
                         <p className="text-white font-semibold">
                           {statText(recap.timeline_stats.gold_at_10)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-gray-500">10 分钟队伍经济差</p>
+                        <p className="text-white font-semibold">
+                          {signedStatText(recap.timeline_stats.team_gold_delta_at_10)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-gray-500">14 分钟队伍经济差</p>
+                        <p className="text-white font-semibold">
+                          {signedStatText(recap.timeline_stats.team_gold_delta_at_14)}
                         </p>
                       </div>
                       <div>

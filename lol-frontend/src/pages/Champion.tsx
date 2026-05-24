@@ -5,6 +5,7 @@ import { ChampionPortrait } from '../components/ChampionPortrait';
 import { RuneSimulator } from '../components/RuneSimulator';
 import type { RegionCode, QueueType } from '../types';
 import { loadItemData, type ItemDetail } from '../services/itemData';
+import { buildItemIconUrl, DEFAULT_DDRAGON_VERSION } from '../services/ddragon';
 
 type TabType = 'overview' | 'builds' | 'counters' | 'synergies';
 
@@ -50,7 +51,7 @@ const ROLES = [
   { code: 'support', name: '辅助' },
 ];
 
-const DDRAGON_BASE = 'https://ddragon.leagueoflegends.com/cdn/16.5.1/img/item';
+const ITEM_ICON_VERSION = DEFAULT_DDRAGON_VERSION;
 
 function formatWinRate(wr: number | null): string {
   if (wr === null || wr === undefined) return 'N/A';
@@ -136,10 +137,7 @@ function StatsOverview({ data }: { data: NonNullable<import('../types').Champion
 
 function BuildSection({ data }: { data: NonNullable<import('../types').ChampionBuildResponse['data']> }) {
   const [itemData, setItemData] = useState<Record<string, ItemDetail>>({});
-  const itemVersion = useMemo(() => {
-    const match = DDRAGON_BASE.match(/\/cdn\/([^/]+)\/img\/item$/);
-    return match?.[1] ?? '16.5.1';
-  }, []);
+  const itemVersion = useMemo(() => ITEM_ICON_VERSION, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -188,7 +186,7 @@ function BuildSection({ data }: { data: NonNullable<import('../types').ChampionB
                 <span className="text-yellow-400 font-bold text-sm">#{idx + 1}</span>
                 {item.id ? (
                   <img
-                    src={`${DDRAGON_BASE}/${item.id}.png`}
+                    src={buildItemIconUrl(item.id, itemVersion)}
                     alt={item.name}
                     className="w-10 h-10 rounded"
                     title={getItemTooltip(item.id, item.name)}
@@ -213,7 +211,7 @@ function BuildSection({ data }: { data: NonNullable<import('../types').ChampionB
                 <div key={item.id || idx} className="flex items-center gap-2 bg-gray-700 rounded-lg px-3 py-2">
                   {item.id ? (
                     <img
-                      src={`${DDRAGON_BASE}/${item.id}.png`}
+                      src={buildItemIconUrl(item.id, itemVersion)}
                       alt={item.name}
                       className="w-8 h-8 rounded"
                       title={getItemTooltip(item.id, item.name)}
@@ -237,7 +235,7 @@ function BuildSection({ data }: { data: NonNullable<import('../types').ChampionB
                 <div key={item.id || idx} className="flex items-center gap-2 bg-gray-700 rounded-lg px-3 py-2">
                   {item.id ? (
                     <img
-                      src={`${DDRAGON_BASE}/${item.id}.png`}
+                      src={buildItemIconUrl(item.id, itemVersion)}
                       alt={item.name}
                       className="w-8 h-8 rounded"
                       title={getItemTooltip(item.id, item.name)}

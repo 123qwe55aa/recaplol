@@ -1,4 +1,4 @@
-const DDRAGON_BASE = 'https://ddragon.leagueoflegends.com/cdn';
+import { buildDdragonDataUrl, normalizeDdragonVersion } from './ddragon';
 
 export interface ItemDetail {
   id: string;
@@ -41,11 +41,7 @@ function stripHtml(input: string): string {
 }
 
 function normalizeVersion(version: string): string {
-  const parts = version.split('.');
-  if (parts.length >= 2) {
-    return `${parts[0]}.${parts[1]}.1`;
-  }
-  return '16.1.1';
+  return normalizeDdragonVersion(version);
 }
 
 export function parseVersionFromItemImageUrl(url: string): string {
@@ -59,7 +55,7 @@ export function loadItemData(version: string, locale = 'zh_CN'): Promise<Record<
   const existing = itemCache.get(key);
   if (existing) return existing;
 
-  const loader = fetch(`${DDRAGON_BASE}/${normalizedVersion}/data/${locale}/item.json`)
+  const loader = fetch(buildDdragonDataUrl(normalizedVersion, locale, 'item.json'))
     .then((res) => {
       if (!res.ok) {
         throw new Error(`Failed to load item data: ${res.status}`);

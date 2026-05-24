@@ -1,4 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  buildDdragonAssetUrl,
+  buildDdragonDataUrl,
+  DDRAGON_VERSIONS_URL,
+} from '../services/ddragon';
 
 type RunePathId = 'precision' | 'domination' | 'sorcery' | 'resolve' | 'inspiration';
 
@@ -15,7 +20,7 @@ const RUNE_PATHS: RunePath[] = [
     id: 'precision',
     name: '精密',
     color: 'text-yellow-400',
-    icon: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/7201_Precision.png',
+    icon: buildDdragonAssetUrl('perk-images/Styles/7201_Precision.png'),
     slots: [
       ['致命节奏', '强攻', '迅捷步伐', '征服者'],
       ['吸收生命力', '气定神闲', '凯旋', '过量治疗'],
@@ -27,7 +32,7 @@ const RUNE_PATHS: RunePath[] = [
     id: 'domination',
     name: '主宰',
     color: 'text-red-400',
-    icon: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/7200_Domination.png',
+    icon: buildDdragonAssetUrl('perk-images/Styles/7200_Domination.png'),
     slots: [
       ['电刑', '掠食者', '黑暗收割', '丛刃'],
       ['恶意中伤', '猛然冲击', '血之滋味', '僵尸守卫'],
@@ -39,7 +44,7 @@ const RUNE_PATHS: RunePath[] = [
     id: 'sorcery',
     name: '巫术',
     color: 'text-blue-400',
-    icon: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/7202_Sorcery.png',
+    icon: buildDdragonAssetUrl('perk-images/Styles/7202_Sorcery.png'),
     slots: [
       ['艾黎', '奥术彗星', '相位猛冲'],
       ['公理秘术', '法力流系带', '虚空行走', '灵光披风'],
@@ -51,7 +56,7 @@ const RUNE_PATHS: RunePath[] = [
     id: 'resolve',
     name: '坚决',
     color: 'text-green-400',
-    icon: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/7204_Resolve.png',
+    icon: buildDdragonAssetUrl('perk-images/Styles/7204_Resolve.png'),
     slots: [
       ['不灭之握', '余震', '守护者'],
       ['生命源泉', '护盾猛击', '爆破'],
@@ -63,7 +68,7 @@ const RUNE_PATHS: RunePath[] = [
     id: 'inspiration',
     name: '启迪',
     color: 'text-cyan-400',
-    icon: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/7203_Whimsy.png',
+    icon: buildDdragonAssetUrl('perk-images/Styles/7203_Whimsy.png'),
     slots: [
       ['冰川增幅', '先攻', '原型：全能石'],
       ['海克斯科技闪现罗网', '海克斯闪现', '神奇之鞋', '完美时机'],
@@ -79,93 +84,90 @@ const SHARDS = [
   ['护甲', '魔抗', '生命值'],
 ];
 
-const DDRAGON_BASE = 'https://ddragon.leagueoflegends.com/cdn';
-const DDRAGON_VERSIONS_URL = 'https://ddragon.leagueoflegends.com/api/versions.json';
-
 const SHARD_ICON_MAP: Record<string, string> = {
-  自适应之力: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/StatMods/StatModsAdaptiveForceIcon.png',
-  攻击速度: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/StatMods/StatModsAttackSpeedIcon.png',
-  冷却缩减: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/StatMods/StatModsCDRScalingIcon.png',
-  移动速度: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/StatMods/StatModsMovementSpeedIcon.png',
-  生命值: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/StatMods/StatModsHealthScalingIcon.png',
-  护甲: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/StatMods/StatModsArmorIcon.png',
-  魔抗: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/StatMods/StatModsMagicResIcon.png',
+  自适应之力: buildDdragonAssetUrl('perk-images/StatMods/StatModsAdaptiveForceIcon.png'),
+  攻击速度: buildDdragonAssetUrl('perk-images/StatMods/StatModsAttackSpeedIcon.png'),
+  冷却缩减: buildDdragonAssetUrl('perk-images/StatMods/StatModsCDRScalingIcon.png'),
+  移动速度: buildDdragonAssetUrl('perk-images/StatMods/StatModsMovementSpeedIcon.png'),
+  生命值: buildDdragonAssetUrl('perk-images/StatMods/StatModsHealthScalingIcon.png'),
+  护甲: buildDdragonAssetUrl('perk-images/StatMods/StatModsArmorIcon.png'),
+  魔抗: buildDdragonAssetUrl('perk-images/StatMods/StatModsMagicResIcon.png'),
 };
 
 const RUNE_ICON_MAP: Record<string, string> = {
-  致命节奏: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Precision/LethalTempo/LethalTempoTemp.png',
-  强攻: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Precision/PressTheAttack/PressTheAttack.png',
-  迅捷步伐: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Precision/FleetFootwork/FleetFootwork.png',
-  征服者: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Precision/Conqueror/Conqueror.png',
-  气定神闲: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Precision/PresenceOfMind/PresenceOfMind.png',
-  吸收生命力: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Precision/PresenceOfMind/PresenceOfMind.png',
-  凯旋: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Precision/Triumph.png',
-  过量治疗: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Precision/Overheal.png',
-  '传说：欢欣': 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Precision/LegendAlacrity/LegendAlacrity.png',
-  '传说：韧性': 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Precision/LegendTenacity/LegendTenacity.png',
-  '传说：血统': 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Precision/LegendBloodline/LegendBloodline.png',
-  致命一击: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Precision/CoupDeGrace/CoupDeGrace.png',
-  坚毅不倒: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Precision/LastStand/LastStand.png',
-  砍倒: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Precision/CutDown/CutDown.png',
+  致命节奏: buildDdragonAssetUrl('perk-images/Styles/Precision/LethalTempo/LethalTempoTemp.png'),
+  强攻: buildDdragonAssetUrl('perk-images/Styles/Precision/PressTheAttack/PressTheAttack.png'),
+  迅捷步伐: buildDdragonAssetUrl('perk-images/Styles/Precision/FleetFootwork/FleetFootwork.png'),
+  征服者: buildDdragonAssetUrl('perk-images/Styles/Precision/Conqueror/Conqueror.png'),
+  气定神闲: buildDdragonAssetUrl('perk-images/Styles/Precision/PresenceOfMind/PresenceOfMind.png'),
+  吸收生命力: buildDdragonAssetUrl('perk-images/Styles/Precision/PresenceOfMind/PresenceOfMind.png'),
+  凯旋: buildDdragonAssetUrl('perk-images/Styles/Precision/Triumph.png'),
+  过量治疗: buildDdragonAssetUrl('perk-images/Styles/Precision/Overheal.png'),
+  '传说：欢欣': buildDdragonAssetUrl('perk-images/Styles/Precision/LegendAlacrity/LegendAlacrity.png'),
+  '传说：韧性': buildDdragonAssetUrl('perk-images/Styles/Precision/LegendTenacity/LegendTenacity.png'),
+  '传说：血统': buildDdragonAssetUrl('perk-images/Styles/Precision/LegendBloodline/LegendBloodline.png'),
+  致命一击: buildDdragonAssetUrl('perk-images/Styles/Precision/CoupDeGrace/CoupDeGrace.png'),
+  坚毅不倒: buildDdragonAssetUrl('perk-images/Styles/Precision/LastStand/LastStand.png'),
+  砍倒: buildDdragonAssetUrl('perk-images/Styles/Precision/CutDown/CutDown.png'),
 
-  电刑: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Domination/Electrocute/Electrocute.png',
-  掠食者: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Domination/Predator/Predator.png',
-  黑暗收割: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Domination/DarkHarvest/DarkHarvest.png',
-  丛刃: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Domination/HailOfBlades/HailOfBlades.png',
-  恶意中伤: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Domination/CheapShot/CheapShot.png',
-  猛然冲击: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Domination/SuddenImpact/SuddenImpact.png',
-  血之滋味: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Domination/TasteOfBlood/GreenTerror_TasteOfBlood.png',
-  僵尸守卫: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Domination/ZombieWard/ZombieWard.png',
-  幽灵魄罗: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Domination/GhostPoro/GhostPoro.png',
-  第六感: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Domination/GhostPoro/GhostPoro.png',
-  眼球收集器: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Domination/EyeballCollection/EyeballCollection.png',
-  可怖纪念品: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Domination/EyeballCollection/EyeballCollection.png',
-  贪欲猎手: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Domination/TreasureHunter/TreasureHunter.png',
-  寻宝猎人: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Domination/TreasureHunter/TreasureHunter.png',
-  终极猎人: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Domination/UltimateHunter/UltimateHunter.png',
-  无情猎手: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Domination/RelentlessHunter/RelentlessHunter.png',
+  电刑: buildDdragonAssetUrl('perk-images/Styles/Domination/Electrocute/Electrocute.png'),
+  掠食者: buildDdragonAssetUrl('perk-images/Styles/Domination/Predator/Predator.png'),
+  黑暗收割: buildDdragonAssetUrl('perk-images/Styles/Domination/DarkHarvest/DarkHarvest.png'),
+  丛刃: buildDdragonAssetUrl('perk-images/Styles/Domination/HailOfBlades/HailOfBlades.png'),
+  恶意中伤: buildDdragonAssetUrl('perk-images/Styles/Domination/CheapShot/CheapShot.png'),
+  猛然冲击: buildDdragonAssetUrl('perk-images/Styles/Domination/SuddenImpact/SuddenImpact.png'),
+  血之滋味: buildDdragonAssetUrl('perk-images/Styles/Domination/TasteOfBlood/GreenTerror_TasteOfBlood.png'),
+  僵尸守卫: buildDdragonAssetUrl('perk-images/Styles/Domination/ZombieWard/ZombieWard.png'),
+  幽灵魄罗: buildDdragonAssetUrl('perk-images/Styles/Domination/GhostPoro/GhostPoro.png'),
+  第六感: buildDdragonAssetUrl('perk-images/Styles/Domination/GhostPoro/GhostPoro.png'),
+  眼球收集器: buildDdragonAssetUrl('perk-images/Styles/Domination/EyeballCollection/EyeballCollection.png'),
+  可怖纪念品: buildDdragonAssetUrl('perk-images/Styles/Domination/EyeballCollection/EyeballCollection.png'),
+  贪欲猎手: buildDdragonAssetUrl('perk-images/Styles/Domination/TreasureHunter/TreasureHunter.png'),
+  寻宝猎人: buildDdragonAssetUrl('perk-images/Styles/Domination/TreasureHunter/TreasureHunter.png'),
+  终极猎人: buildDdragonAssetUrl('perk-images/Styles/Domination/UltimateHunter/UltimateHunter.png'),
+  无情猎手: buildDdragonAssetUrl('perk-images/Styles/Domination/RelentlessHunter/RelentlessHunter.png'),
 
-  艾黎: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Sorcery/SummonAery/SummonAery.png',
-  奥术彗星: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Sorcery/ArcaneComet/ArcaneComet.png',
-  相位猛冲: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Sorcery/PhaseRush/PhaseRush.png',
-  法力流系带: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Sorcery/ManaflowBand/ManaflowBand.png',
-  公理秘术: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Sorcery/ManaflowBand/ManaflowBand.png',
-  虚空行走: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Sorcery/NullifyingOrb/Pokeshield.png',
-  灵光披风: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Sorcery/NimbusCloak/6361.png',
-  超然: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Sorcery/Transcendence/Transcendence.png',
-  迅捷: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Sorcery/Celerity/CelerityTemp.png',
-  绝对专注: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Sorcery/AbsoluteFocus/AbsoluteFocus.png',
-  焦灼: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Sorcery/Scorch/Scorch.png',
-  风暴聚集: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Sorcery/GatheringStorm/GatheringStorm.png',
-  水上行走: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Sorcery/Waterwalking/Waterwalking.png',
+  艾黎: buildDdragonAssetUrl('perk-images/Styles/Sorcery/SummonAery/SummonAery.png'),
+  奥术彗星: buildDdragonAssetUrl('perk-images/Styles/Sorcery/ArcaneComet/ArcaneComet.png'),
+  相位猛冲: buildDdragonAssetUrl('perk-images/Styles/Sorcery/PhaseRush/PhaseRush.png'),
+  法力流系带: buildDdragonAssetUrl('perk-images/Styles/Sorcery/ManaflowBand/ManaflowBand.png'),
+  公理秘术: buildDdragonAssetUrl('perk-images/Styles/Sorcery/ManaflowBand/ManaflowBand.png'),
+  虚空行走: buildDdragonAssetUrl('perk-images/Styles/Sorcery/NullifyingOrb/Pokeshield.png'),
+  灵光披风: buildDdragonAssetUrl('perk-images/Styles/Sorcery/NimbusCloak/6361.png'),
+  超然: buildDdragonAssetUrl('perk-images/Styles/Sorcery/Transcendence/Transcendence.png'),
+  迅捷: buildDdragonAssetUrl('perk-images/Styles/Sorcery/Celerity/CelerityTemp.png'),
+  绝对专注: buildDdragonAssetUrl('perk-images/Styles/Sorcery/AbsoluteFocus/AbsoluteFocus.png'),
+  焦灼: buildDdragonAssetUrl('perk-images/Styles/Sorcery/Scorch/Scorch.png'),
+  风暴聚集: buildDdragonAssetUrl('perk-images/Styles/Sorcery/GatheringStorm/GatheringStorm.png'),
+  水上行走: buildDdragonAssetUrl('perk-images/Styles/Sorcery/Waterwalking/Waterwalking.png'),
 
-  不灭之握: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Resolve/GraspOfTheUndying/GraspOfTheUndying.png',
-  余震: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Resolve/VeteranAftershock/VeteranAftershock.png',
-  守护者: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Resolve/Guardian/Guardian.png',
-  生命源泉: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Resolve/FontOfLife/FontOfLife.png',
-  护盾猛击: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Resolve/ShieldBash/ShieldBash.png',
-  爆破: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Resolve/Demolish/Demolish.png',
-  调节: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Resolve/Conditioning/Conditioning.png',
-  复苏之风: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Resolve/SecondWind/SecondWind.png',
-  骸骨镀层: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Resolve/BonePlating/BonePlating.png',
-  坚定: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Resolve/Unflinching/Unflinching.png',
-  复苏: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Resolve/Revitalize/Revitalize.png',
-  过度生长: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Resolve/Overgrowth/Overgrowth.png',
+  不灭之握: buildDdragonAssetUrl('perk-images/Styles/Resolve/GraspOfTheUndying/GraspOfTheUndying.png'),
+  余震: buildDdragonAssetUrl('perk-images/Styles/Resolve/VeteranAftershock/VeteranAftershock.png'),
+  守护者: buildDdragonAssetUrl('perk-images/Styles/Resolve/Guardian/Guardian.png'),
+  生命源泉: buildDdragonAssetUrl('perk-images/Styles/Resolve/FontOfLife/FontOfLife.png'),
+  护盾猛击: buildDdragonAssetUrl('perk-images/Styles/Resolve/ShieldBash/ShieldBash.png'),
+  爆破: buildDdragonAssetUrl('perk-images/Styles/Resolve/Demolish/Demolish.png'),
+  调节: buildDdragonAssetUrl('perk-images/Styles/Resolve/Conditioning/Conditioning.png'),
+  复苏之风: buildDdragonAssetUrl('perk-images/Styles/Resolve/SecondWind/SecondWind.png'),
+  骸骨镀层: buildDdragonAssetUrl('perk-images/Styles/Resolve/BonePlating/BonePlating.png'),
+  坚定: buildDdragonAssetUrl('perk-images/Styles/Resolve/Unflinching/Unflinching.png'),
+  复苏: buildDdragonAssetUrl('perk-images/Styles/Resolve/Revitalize/Revitalize.png'),
+  过度生长: buildDdragonAssetUrl('perk-images/Styles/Resolve/Overgrowth/Overgrowth.png'),
 
-  冰川增幅: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Inspiration/GlacialAugment/GlacialAugment.png',
-  先攻: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Inspiration/FirstStrike/FirstStrike.png',
-  '原型：全能石': 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Inspiration/UnsealedSpellbook/UnsealedSpellbook.png',
-  海克斯闪现: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Inspiration/HextechFlashtraption/HextechFlashtraption.png',
-  海克斯科技闪现罗网: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Inspiration/HextechFlashtraption/HextechFlashtraption.png',
-  神奇之鞋: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Inspiration/MagicalFootwear/MagicalFootwear.png',
-  完美时机: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Inspiration/PerfectTiming/PerfectTiming.png',
-  未来市场: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Inspiration/FuturesMarket/FuturesMarket.png',
-  三重补药: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Inspiration/TimeWarpTonic/TimeWarpTonic.png',
-  小兵去质器: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Inspiration/MinionDematerializer/MinionDematerializer.png',
-  饼干配送: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Inspiration/BiscuitDelivery/BiscuitDelivery.png',
-  星界洞悉: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Inspiration/CosmicInsight/CosmicInsight.png',
-  行进速率: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Inspiration/ApproachVelocity/ApproachVelocity.png',
-  时间扭曲补药: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Inspiration/TimeWarpTonic/TimeWarpTonic.png',
+  冰川增幅: buildDdragonAssetUrl('perk-images/Styles/Inspiration/GlacialAugment/GlacialAugment.png'),
+  先攻: buildDdragonAssetUrl('perk-images/Styles/Inspiration/FirstStrike/FirstStrike.png'),
+  '原型：全能石': buildDdragonAssetUrl('perk-images/Styles/Inspiration/UnsealedSpellbook/UnsealedSpellbook.png'),
+  海克斯闪现: buildDdragonAssetUrl('perk-images/Styles/Inspiration/HextechFlashtraption/HextechFlashtraption.png'),
+  海克斯科技闪现罗网: buildDdragonAssetUrl('perk-images/Styles/Inspiration/HextechFlashtraption/HextechFlashtraption.png'),
+  神奇之鞋: buildDdragonAssetUrl('perk-images/Styles/Inspiration/MagicalFootwear/MagicalFootwear.png'),
+  完美时机: buildDdragonAssetUrl('perk-images/Styles/Inspiration/PerfectTiming/PerfectTiming.png'),
+  未来市场: buildDdragonAssetUrl('perk-images/Styles/Inspiration/FuturesMarket/FuturesMarket.png'),
+  三重补药: buildDdragonAssetUrl('perk-images/Styles/Inspiration/TimeWarpTonic/TimeWarpTonic.png'),
+  小兵去质器: buildDdragonAssetUrl('perk-images/Styles/Inspiration/MinionDematerializer/MinionDematerializer.png'),
+  饼干配送: buildDdragonAssetUrl('perk-images/Styles/Inspiration/BiscuitDelivery/BiscuitDelivery.png'),
+  星界洞悉: buildDdragonAssetUrl('perk-images/Styles/Inspiration/CosmicInsight/CosmicInsight.png'),
+  行进速率: buildDdragonAssetUrl('perk-images/Styles/Inspiration/ApproachVelocity/ApproachVelocity.png'),
+  时间扭曲补药: buildDdragonAssetUrl('perk-images/Styles/Inspiration/TimeWarpTonic/TimeWarpTonic.png'),
 };
 
 const buildInitialSelections = (slotCount: number): (string | null)[] =>
@@ -237,7 +239,7 @@ function extractRuneInfo(payload: unknown): RuneInfoMap {
         const name = (node.name ?? '').trim();
         if (!name) continue;
         result[normalizeRuneName(name)] = {
-          icon: node.icon ? `${DDRAGON_BASE}/img/${node.icon}` : '',
+          icon: node.icon ? buildDdragonAssetUrl(node.icon) : '',
           shortDesc: stripHtml(node.shortDesc ?? ''),
           longDesc: stripHtml(node.longDesc ?? ''),
         };
@@ -583,7 +585,7 @@ export function RuneSimulator({
       const locales = ['zh_CN', 'en_US'];
       const merged: RuneInfoMap = {};
       for (const locale of locales) {
-        const url = `${DDRAGON_BASE}/${latestVersion}/data/${locale}/runesReforged.json`;
+        const url = buildDdragonDataUrl(latestVersion, locale, 'runesReforged.json');
         const res = await fetch(url);
         if (!res.ok) continue;
         const payload = await res.json();

@@ -296,6 +296,12 @@ export interface MatchRecapResponse {
     gold_at_14?: number | null;
     cs_at_14?: number | null;
     cs_per_min_at_14?: number | null;
+    team_gold_delta_at_10?: number | null;
+    team_xp_delta_at_10?: number | null;
+    team_cs_delta_at_10?: number | null;
+    team_gold_delta_at_14?: number | null;
+    team_xp_delta_at_14?: number | null;
+    team_cs_delta_at_14?: number | null;
   };
   match_phase_summary: Record<string, unknown>;
   resource_windows: Array<Record<string, unknown>>;
@@ -327,3 +333,30 @@ export interface CoachMatchRecapResponse {
 
 export type QueueType = 'RANKED_SOLO_5x5' | 'RANKED_FLEX_SR' | 'RANKED_TFT' | 'ARKANE';
 export type RegionCode = 'kr' | 'na' | 'euw' | 'eune' | 'jp' | 'oce' | 'ru' | 'br' | 'las' | 'lan' | 'tr' | 'sg' | 'my' | 'ph' | 'th' | 'tw' | 'vn';
+
+export interface RiotStatusTitle {
+  locale?: string;
+  content?: string;
+}
+
+export interface RiotStatusUpdate {
+  id?: number;
+  maintenance_status?: string;
+  incident_severity?: string;
+  titles?: RiotStatusTitle[];
+  updates?: Array<{
+    author?: string;
+    publish?: boolean;
+    created_at?: string;
+    updated_at?: string;
+    translations?: RiotStatusTitle[];
+  }>;
+}
+
+export interface RiotPlatformStatus {
+  id: string;
+  name: string;
+  locales?: string[];
+  maintenances?: RiotStatusUpdate[];
+  incidents?: RiotStatusUpdate[];
+}

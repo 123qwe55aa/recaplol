@@ -121,6 +121,63 @@ def test_build_match_recap_calculates_ten_minute_cs_and_gold():
     assert recap["match_phase_summary"]["lane_phase_cs_per_min"] == 7.7
 
 
+def test_build_match_recap_calculates_team_deltas_at_ten_and_fourteen():
+    timeline = {
+        "info": {
+            "frames": [
+                {
+                    "timestamp": 600000,
+                    "participantFrames": {
+                        "1": {"participantId": 1, "totalGold": 3200, "xp": 4300, "level": 7, "minionsKilled": 68, "jungleMinionsKilled": 0},
+                        "2": {"participantId": 2, "totalGold": 3100, "xp": 4000, "level": 7, "minionsKilled": 12, "jungleMinionsKilled": 48},
+                        "3": {"participantId": 3, "totalGold": 3400, "xp": 4500, "level": 8, "minionsKilled": 72, "jungleMinionsKilled": 0},
+                        "4": {"participantId": 4, "totalGold": 3000, "xp": 3600, "level": 6, "minionsKilled": 64, "jungleMinionsKilled": 0},
+                        "5": {"participantId": 5, "totalGold": 2300, "xp": 3000, "level": 6, "minionsKilled": 14, "jungleMinionsKilled": 0},
+                        "6": {"participantId": 6, "totalGold": 3000, "xp": 4000, "level": 7, "minionsKilled": 60, "jungleMinionsKilled": 0},
+                        "7": {"participantId": 7, "totalGold": 3000, "xp": 3900, "level": 7, "minionsKilled": 10, "jungleMinionsKilled": 44},
+                        "8": {"participantId": 8, "totalGold": 3300, "xp": 4300, "level": 8, "minionsKilled": 68, "jungleMinionsKilled": 0},
+                        "9": {"participantId": 9, "totalGold": 2900, "xp": 3500, "level": 6, "minionsKilled": 59, "jungleMinionsKilled": 0},
+                        "10": {"participantId": 10, "totalGold": 2200, "xp": 2900, "level": 6, "minionsKilled": 10, "jungleMinionsKilled": 0},
+                    },
+                    "events": [],
+                },
+                {
+                    "timestamp": 840000,
+                    "participantFrames": {
+                        "1": {"participantId": 1, "totalGold": 4700, "xp": 6100, "level": 9, "minionsKilled": 103, "jungleMinionsKilled": 0},
+                        "2": {"participantId": 2, "totalGold": 4550, "xp": 5850, "level": 9, "minionsKilled": 18, "jungleMinionsKilled": 76},
+                        "3": {"participantId": 3, "totalGold": 5000, "xp": 6400, "level": 10, "minionsKilled": 111, "jungleMinionsKilled": 0},
+                        "4": {"participantId": 4, "totalGold": 4300, "xp": 5050, "level": 8, "minionsKilled": 98, "jungleMinionsKilled": 0},
+                        "5": {"participantId": 5, "totalGold": 3300, "xp": 4300, "level": 8, "minionsKilled": 20, "jungleMinionsKilled": 0},
+                        "6": {"participantId": 6, "totalGold": 4300, "xp": 5700, "level": 9, "minionsKilled": 94, "jungleMinionsKilled": 0},
+                        "7": {"participantId": 7, "totalGold": 4200, "xp": 5450, "level": 8, "minionsKilled": 16, "jungleMinionsKilled": 69},
+                        "8": {"participantId": 8, "totalGold": 4600, "xp": 5900, "level": 9, "minionsKilled": 101, "jungleMinionsKilled": 0},
+                        "9": {"participantId": 9, "totalGold": 4050, "xp": 4800, "level": 8, "minionsKilled": 91, "jungleMinionsKilled": 0},
+                        "10": {"participantId": 10, "totalGold": 3100, "xp": 4100, "level": 7, "minionsKilled": 15, "jungleMinionsKilled": 0},
+                    },
+                    "events": [],
+                },
+            ],
+        }
+    }
+
+    recap = build_match_recap(
+        timeline=timeline,
+        participant_id=3,
+        participant_team_id=100,
+        game_duration=1800,
+        team_position="MIDDLE",
+    )
+
+    assert recap["timeline_stats"]["team_gold_delta_at_10"] == 600
+    assert recap["timeline_stats"]["team_xp_delta_at_10"] == 800
+    assert recap["timeline_stats"]["team_cs_delta_at_10"] == 27
+    assert recap["timeline_stats"]["team_gold_delta_at_14"] == 1600
+    assert recap["timeline_stats"]["team_xp_delta_at_14"] == 1750
+    assert recap["timeline_stats"]["team_cs_delta_at_14"] == 40
+    assert recap["match_phase_summary"]["team_gold_delta_at_10"] == 600
+
+
 def test_build_match_recap_does_not_flag_support_low_cs():
     timeline = {
         "info": {

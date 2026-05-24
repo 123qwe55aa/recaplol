@@ -3,13 +3,23 @@ import { describe, expect, it, vi } from 'vitest';
 import { LoLPatchAnnouncementCard } from '../LoLPatchAnnouncementCard';
 
 const mockUsePatchAnnouncement = vi.fn();
+const mockUseLolVersion = vi.fn();
 
 vi.mock('../../hooks/usePatchAnnouncement', () => ({
   usePatchAnnouncement: () => mockUsePatchAnnouncement(),
 }));
 
+vi.mock('../../hooks/useLolVersion', () => ({
+  useLolVersion: () => mockUseLolVersion(),
+}));
+
 describe('LoLPatchAnnouncementCard', () => {
   it('renders the latest patch note announcement and parsed takeaways', () => {
+    mockUseLolVersion.mockReturnValue({
+      data: '26.10.1',
+      isLoading: false,
+      error: null,
+    });
     mockUsePatchAnnouncement.mockReturnValue({
       data: {
         version: '26.10',
@@ -55,31 +65,31 @@ describe('LoLPatchAnnouncementCard', () => {
     fireEvent.click(screen.getByRole('button', { name: '展开完整版本清单' }));
     expect(screen.getByAltText('安妮 图标')).toHaveAttribute(
       'src',
-      'https://ddragon.leagueoflegends.com/cdn/16.10.1/img/champion/Annie.png'
+      'https://ddragon.leagueoflegends.com/cdn/26.10.1/img/champion/Annie.png'
     );
     expect(screen.getByAltText('艾希 图标')).toHaveAttribute(
       'src',
-      'https://ddragon.leagueoflegends.com/cdn/16.10.1/img/champion/Ashe.png'
+      'https://ddragon.leagueoflegends.com/cdn/26.10.1/img/champion/Ashe.png'
     );
     expect(screen.getByAltText('加里欧 图标')).toHaveAttribute(
       'src',
-      'https://ddragon.leagueoflegends.com/cdn/16.10.1/img/champion/Galio.png'
+      'https://ddragon.leagueoflegends.com/cdn/26.10.1/img/champion/Galio.png'
     );
     expect(screen.getByAltText('⚔ 娜菲芮 图标')).toHaveAttribute(
       'src',
-      'https://ddragon.leagueoflegends.com/cdn/16.10.1/img/champion/Naafiri.png'
+      'https://ddragon.leagueoflegends.com/cdn/26.10.1/img/champion/Naafiri.png'
     );
     expect(screen.getByAltText('道具 多兰之盔 图标')).toHaveAttribute(
       'src',
-      'https://ddragon.leagueoflegends.com/cdn/16.10.1/img/item/1120.png'
+      'https://ddragon.leagueoflegends.com/cdn/26.10.1/img/item/1120.png'
     );
     expect(screen.getByAltText('灭世者的死亡之帽 图标')).toHaveAttribute(
       'src',
-      'https://ddragon.leagueoflegends.com/cdn/16.10.1/img/item/3089.png'
+      'https://ddragon.leagueoflegends.com/cdn/26.10.1/img/item/3089.png'
     );
     expect(screen.getByAltText('🛡 巫妖之祸 图标')).toHaveAttribute(
       'src',
-      'https://ddragon.leagueoflegends.com/cdn/16.10.1/img/item/3100.png'
+      'https://ddragon.leagueoflegends.com/cdn/26.10.1/img/item/3100.png'
     );
     expect(screen.getByAltText('冥火之触 图标')).toHaveAttribute(
       'src',
@@ -103,6 +113,11 @@ describe('LoLPatchAnnouncementCard', () => {
   });
 
   it('renders a loading state', () => {
+    mockUseLolVersion.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      error: null,
+    });
     mockUsePatchAnnouncement.mockReturnValue({
       data: undefined,
       isLoading: true,

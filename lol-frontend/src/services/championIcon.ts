@@ -1,6 +1,12 @@
-const DDRAGON_VERSIONS_URL = 'https://ddragon.leagueoflegends.com/api/versions.json';
-const DDRAGON_CHAMPION_DATA_BASE = 'https://ddragon.leagueoflegends.com/cdn';
-const DEFAULT_VERSION = '16.1.1';
+import {
+  buildChampionIconUrl as buildDdragonChampionIconUrl,
+  buildDdragonDataUrl,
+  DDRAGON_VERSIONS_URL,
+  DEFAULT_DDRAGON_VERSION,
+  normalizeDdragonVersion,
+} from './ddragon';
+
+const DEFAULT_VERSION = DEFAULT_DDRAGON_VERSION;
 const FALLBACK_CHAMPION_KEY = 'Aatrox';
 
 const CHAMPION_NAME_ALIASES: Record<string, string> = {
@@ -40,11 +46,7 @@ let latestVersionPromise: Promise<string> | null = null;
 let championKeyMapPromise: Promise<Record<string, string>> | null = null;
 
 function normalizeVersion(version: string): string {
-  const parts = version.split('.');
-  if (parts.length >= 2) {
-    return `${parts[0]}.${parts[1]}.1`;
-  }
-  return DEFAULT_VERSION;
+  return normalizeDdragonVersion(version);
 }
 
 function normalizeChampionName(name: string): string {
@@ -62,7 +64,7 @@ function sanitizeChampionKey(name: string): string {
 }
 
 export function buildChampionIconUrl(version: string, championKey: string): string {
-  return `${DDRAGON_CHAMPION_DATA_BASE}/${version}/img/champion/${championKey}.png`;
+  return buildDdragonChampionIconUrl(version, championKey);
 }
 
 export async function getLatestDdragonVersion(): Promise<string> {
@@ -81,7 +83,7 @@ export async function getLatestDdragonVersion(): Promise<string> {
 }
 
 async function loadChampionKeyMap(version: string): Promise<Record<string, string>> {
-  const url = `${DDRAGON_CHAMPION_DATA_BASE}/${version}/data/en_US/champion.json`;
+  const url = buildDdragonDataUrl(version, 'en_US', 'champion.json');
   const res = await fetch(url);
   if (!res.ok) {
     throw new Error(`Failed to fetch champion data: ${res.status}`);

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePlayerStore } from '../stores/playerStore';
 import { ChampionSearch } from '../components/ChampionSearch';
+import { RiotStatusCard } from '../components/RiotStatusCard';
 
 export function Home() {
   const navigate = useNavigate();
@@ -62,6 +63,7 @@ export function Home() {
         </form>
 
         <ChampionSearch />
+        <RiotStatusCard platform={tagLine} />
 
         {recentSearches.length > 0 && (
           <div className="mt-8">

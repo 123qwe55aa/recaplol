@@ -290,6 +290,30 @@ class TestRiotAPIClient:
                 assert result["championId"] == 103
                 assert result["championLevel"] == 7
 
+    class TestStatusEndpoints:
+        """Test LoL status endpoints."""
+
+        @pytest.mark.asyncio
+        async def test_get_lol_status_uses_platform_routing(self):
+            """Test get_lol_status uses platform-specific routing."""
+            client = RiotAPIClient(api_key="test-key")
+            mock_json = {
+                "id": "TW2",
+                "name": "Taiwan",
+                "locales": ["zh_TW"],
+                "maintenances": [],
+                "incidents": [],
+            }
+
+            with patch.object(client, '_get', new_callable=AsyncMock) as mock_get:
+                mock_get.return_value = mock_json
+                result = await client.get_lol_status("tw2")
+
+                assert result == mock_json
+                mock_get.assert_called_once_with(
+                    "https://tw2.api.riotgames.com/lol/status/v4/platform-data"
+                )
+
 
 class TestGetRiotClient:
     """Test get_riot_client function."""

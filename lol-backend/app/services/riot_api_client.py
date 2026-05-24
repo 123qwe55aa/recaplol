@@ -229,6 +229,12 @@ class RiotAPIClient:
         url = f"{base}/lol/champion-mastery/v4/champion-masteries/by-summoner/{encrypted_summoner_id}/by-champion/{champion_id}"
         return await self._get(url)
 
+    # Status endpoints (use platform routing)
+    async def get_lol_status(self, platform: str = "na1") -> Optional[Dict]:
+        base = self.TAG_TO_PLATFORM.get(platform.lower(), self.REGION_URL)
+        url = f"{base}/lol/status/v4/platform-data"
+        return await self._get(url)
+
 
 def get_riot_client() -> RiotAPIClient:
     return RiotAPIClient(settings.riot_api_key, settings.riot_api_timeout)

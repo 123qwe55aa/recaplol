@@ -98,8 +98,12 @@ def build_match_recap(
     )
     frame_10 = _closest_frame_at_or_before(participant_frames, EARLY_GAME_MS)
     frame_14 = _closest_frame_at_or_before(participant_frames, LANE_PHASE_MS)
+    raw_frame_10 = _closest_frame_at_or_before(frames, EARLY_GAME_MS)
+    raw_frame_14 = _closest_frame_at_or_before(frames, LANE_PHASE_MS)
     cs_at_10 = _frame_cs(frame_10)
     cs_at_14 = _frame_cs(frame_14)
+    team_deltas_at_10 = _team_frame_deltas(raw_frame_10, participant_team_id)
+    team_deltas_at_14 = _team_frame_deltas(raw_frame_14, participant_team_id)
     early_deaths = sum(1 for event in death_events if _timestamp(event) <= EARLY_GAME_MS)
     resource_deaths = sum(1 for window in resource_windows if window["player_died_before"])
 
@@ -117,6 +121,12 @@ def build_match_recap(
         "gold_at_14": _frame_value(frame_14, "totalGold"),
         "cs_at_14": cs_at_14,
         "cs_per_min_at_14": round(cs_at_14 / 14, 2) if cs_at_14 is not None else None,
+        "team_gold_delta_at_10": team_deltas_at_10["gold"],
+        "team_xp_delta_at_10": team_deltas_at_10["xp"],
+        "team_cs_delta_at_10": team_deltas_at_10["cs"],
+        "team_gold_delta_at_14": team_deltas_at_14["gold"],
+        "team_xp_delta_at_14": team_deltas_at_14["xp"],
+        "team_cs_delta_at_14": team_deltas_at_14["cs"],
     }
 
     insights = _build_insights(
@@ -136,6 +146,8 @@ def build_match_recap(
             "early_deaths": early_deaths,
             "lane_phase_cs_per_min": timeline_stats["cs_per_min_at_10"],
             "mid_game_resource_deaths": resource_deaths,
+            "team_gold_delta_at_10": timeline_stats["team_gold_delta_at_10"],
+            "team_gold_delta_at_14": timeline_stats["team_gold_delta_at_14"],
         },
         "resource_windows": resource_windows,
         "key_events": {
@@ -277,6 +289,47 @@ def _frame_cs(frame: dict[str, Any] | None) -> int | None:
     if not frame:
         return None
     return int(frame.get("minionsKilled") or 0) + int(frame.get("jungleMinionsKilled") or 0)
+
+
+def _team_frame_deltas(
+    frame: dict[str, Any] | None,
+    participant_team_id: int | None,
+) -> dict[str, int | None]:
+    empty = {"gold": None, "xp": None, "cs": None}
+    if not frame or participant_team_id not in (100, 200):
+        return empty
+
+    player_ids = range(1, 6) if participant_team_id == 100 else range(6, 11)
+    opponent_ids = range(6, 11) if participant_team_id == 100 else range(1, 6)
+    player_totals = _team_frame_totals(frame, player_ids)
+    opponent_totals = _team_frame_totals(frame, opponent_ids)
+    if player_totals is None or opponent_totals is None:
+        return empty
+
+    return {
+        "gold": player_totals["gold"] - opponent_totals["gold"],
+        "xp": player_totals["xp"] - opponent_totals["xp"],
+        "cs": player_totals["cs"] - opponent_totals["cs"],
+    }
+
+
+def _team_frame_totals(
+    frame: dict[str, Any],
+    participant_ids: range,
+) -> dict[str, int] | None:
+    participant_frames = frame.get("participantFrames") or {}
+    totals = {"gold": 0, "xp": 0, "cs": 0}
+    found = False
+    for participant_id in participant_ids:
+        participant_frame = participant_frames.get(str(participant_id))
+        if not participant_frame:
+            continue
+        found = True
+        totals["gold"] += int(participant_frame.get("totalGold") or 0)
+        totals["xp"] += int(participant_frame.get("xp") or 0)
+        totals["cs"] += _frame_cs(participant_frame) or 0
+
+    return totals if found else None
 
 
 def _frame_value(frame: dict[str, Any] | None, key: str) -> int | None:

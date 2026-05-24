@@ -141,4 +141,23 @@ describe('api service', () => {
     await expect(getLatestPatchAnnouncement()).resolves.toEqual(announcement);
     expect(axiosMocks.get).toHaveBeenCalledWith('/patch-notes/latest');
   });
+
+  it('fetches Riot platform status through the backend proxy', async () => {
+    const status = {
+      id: 'TW2',
+      name: 'Taiwan',
+      maintenances: [],
+      incidents: [],
+    };
+    axiosMocks.get.mockResolvedValue({ data: status });
+    axiosMocks.create.mockReturnValue({
+      get: axiosMocks.get,
+      post: axiosMocks.post,
+    });
+
+    const { getRiotPlatformStatus } = await import('../api');
+
+    await expect(getRiotPlatformStatus('tw2')).resolves.toEqual(status);
+    expect(axiosMocks.get).toHaveBeenCalledWith('/riot/status/tw2');
+  });
 });
