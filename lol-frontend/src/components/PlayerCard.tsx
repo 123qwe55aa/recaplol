@@ -51,6 +51,16 @@ export function PlayerCard({ player }: PlayerCardProps) {
         </div>
       </div>
 
+      {player.rankedFlex ? (
+        <div className="mt-4 rounded-lg border border-gray-700 p-3">
+          <p className="text-xs text-gray-400">灵活组排 (RANKED_FLEX_SR)</p>
+          <p className="text-sm text-white mt-1">
+            {player.rankedFlex.tier} {player.rankedFlex.rank} · {player.rankedFlex.lp} LP ·
+            {' '}{player.rankedFlex.wins}W {player.rankedFlex.losses}L · {player.rankedFlex.winRate.toFixed(1)}%
+          </p>
+        </div>
+      ) : null}
+
       {player.recentChampions.length > 0 && (
         <div className="mt-6">
           <p className="text-gray-400 mb-2">最近使用</p>

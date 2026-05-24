@@ -11,6 +11,14 @@ export interface Player {
   wins: number;
   losses: number;
   recentChampions: number[];
+  rankedFlex?: {
+    tier: string;
+    rank: string;
+    lp: number;
+    wins: number;
+    losses: number;
+    winRate: number;
+  } | null;
 }
 
 export interface Match {

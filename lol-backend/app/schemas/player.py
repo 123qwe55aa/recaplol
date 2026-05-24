@@ -25,6 +25,7 @@ class PlayerResponse(PlayerBase):
     revision_date: Optional[int] = None
 
     ranked_stats: Optional[RankInfo] = None
+    ranked_flex_stats: Optional[RankInfo] = None
     ranked_status: Optional[str] = None
 
     created_at: Optional[datetime] = None

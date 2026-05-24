@@ -45,6 +45,14 @@ interface ApiPlayerResponse {
     losses: number;
     queue_type: string;
   };
+  ranked_flex_stats?: {
+    tier: string;
+    rank: string;
+    league_points: number;
+    wins: number;
+    losses: number;
+    queue_type: string;
+  };
 }
 
 interface ApiMatchListResponse {
@@ -189,6 +197,19 @@ function transformPlayer(apiPlayer: ApiPlayerResponse): Player {
     wins: ranked?.wins ?? 0,
     losses: ranked?.losses ?? 0,
     recentChampions: [], // Not provided by player endpoint
+    rankedFlex: apiPlayer.ranked_flex_stats
+      ? {
+          tier: apiPlayer.ranked_flex_stats.tier,
+          rank: apiPlayer.ranked_flex_stats.rank,
+          lp: apiPlayer.ranked_flex_stats.league_points,
+          wins: apiPlayer.ranked_flex_stats.wins,
+          losses: apiPlayer.ranked_flex_stats.losses,
+          winRate:
+            (apiPlayer.ranked_flex_stats.wins + apiPlayer.ranked_flex_stats.losses) > 0
+              ? (apiPlayer.ranked_flex_stats.wins / (apiPlayer.ranked_flex_stats.wins + apiPlayer.ranked_flex_stats.losses)) * 100
+              : 0,
+        }
+      : null,
   };
 }
 

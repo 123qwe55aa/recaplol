@@ -33,7 +33,11 @@ def _should_resolve_latest_puuid(player, tag_line: str) -> bool:
     return tag_line.lower() in SEA_TAG_LINES
 
 
-def _build_player_response(player, ranked_status: Optional[str] = None) -> PlayerResponse:
+def _build_player_response(
+    player,
+    ranked_status: Optional[str] = None,
+    ranked_flex_stats: Optional[RankInfo] = None,
+) -> PlayerResponse:
     ranked_stats = None
     if player.ranked_solo_tier:
         ranked_stats = RankInfo(
@@ -54,6 +58,7 @@ def _build_player_response(player, ranked_status: Optional[str] = None) -> Playe
         summoner_level=player.summoner_level,
         revision_date=player.revision_date,
         ranked_stats=ranked_stats,
+        ranked_flex_stats=ranked_flex_stats,
         ranked_status=ranked_status,
         created_at=player.created_at,
         updated_at=player.updated_at,
@@ -241,9 +246,6 @@ async def get_player_by_summoner(
                 )
             puuid = account_data["puuid"]
 
-            if player and player.puuid == puuid and player.summoner_id:
-                return _build_player_response(player, ranked_status="ranked_from_cache")
-
             # Get summoner data by PUUID (correct platform for this tag line)
             try:
                 summoner_data = await riot_client.get_summoner_by_puuid(puuid, tag_line=tag_line)
@@ -284,11 +286,13 @@ async def get_player_by_summoner(
                         raise
                     ranked_status = "ranked_fetch_failed_fallback"
             solo_rank = None
+            flex_rank = None
             if ranked_data:
                 for entry in ranked_data:
                     if entry.get("queueType") == "RANKED_SOLO_5x5":
                         solo_rank = entry
-                        break
+                    elif entry.get("queueType") == "RANKED_FLEX_SR":
+                        flex_rank = entry
             if ranked_status != "ranked_fetch_failed_fallback":
                 ranked_status = "ranked_from_riot" if solo_rank else "ranked_empty_from_riot"
 
@@ -318,7 +322,22 @@ async def get_player_by_summoner(
                 if not player:
                     raise
 
-    return _build_player_response(player, ranked_status=ranked_status)
+    ranked_flex_stats = None
+    if _should_resolve_latest_puuid(player, tag_line) and 'flex_rank' in locals() and flex_rank:
+        ranked_flex_stats = RankInfo(
+            tier=flex_rank.get("tier"),
+            rank=flex_rank.get("rank") or "I",
+            league_points=flex_rank.get("leaguePoints") or 0,
+            wins=flex_rank.get("wins", 0),
+            losses=flex_rank.get("losses", 0),
+            queue_type="RANKED_FLEX_SR",
+        )
+
+    return _build_player_response(
+        player,
+        ranked_status=ranked_status,
+        ranked_flex_stats=ranked_flex_stats,
+    )
 
 
 @router.post("/{puuid}/refresh", response_model=PlayerResponse)
@@ -365,11 +384,13 @@ async def refresh_player_by_puuid(
                     raise
 
         solo_rank = None
+        flex_rank = None
         if ranked_data:
             for entry in ranked_data:
                 if entry.get("queueType") == "RANKED_SOLO_5x5":
                     solo_rank = entry
-                    break
+                elif entry.get("queueType") == "RANKED_FLEX_SR":
+                    flex_rank = entry
 
         player = await repo.upsert_player(
             puuid=puuid,
@@ -387,4 +408,15 @@ async def refresh_player_by_puuid(
         )
         await db.commit()
 
-    return _build_player_response(player)
+    ranked_flex_stats = None
+    if flex_rank:
+        ranked_flex_stats = RankInfo(
+            tier=flex_rank.get("tier"),
+            rank=flex_rank.get("rank") or "I",
+            league_points=flex_rank.get("leaguePoints") or 0,
+            wins=flex_rank.get("wins", 0),
+            losses=flex_rank.get("losses", 0),
+            queue_type="RANKED_FLEX_SR",
+        )
+
+    return _build_player_response(player, ranked_flex_stats=ranked_flex_stats)
