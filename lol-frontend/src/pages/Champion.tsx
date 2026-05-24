@@ -60,12 +60,14 @@ function formatWinRate(wr: number | null): string {
 function formatLastUpdated(isoString: string): string {
   try {
     const date = new Date(isoString);
-    return date.toLocaleString('zh-CN', {
+    const local = date.toLocaleString('zh-CN', {
       month: '2-digit',
       day: '2-digit',
       hour: '2-digit',
       minute: '2-digit',
     });
+    const utc = date.toISOString().slice(5, 16).replace('T', ' ');
+    return `${local} (UTC ${utc})`;
   } catch {
     return isoString;
   }
