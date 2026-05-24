@@ -6,7 +6,7 @@ from datetime import datetime
 from fastapi.testclient import TestClient
 from fastapi import FastAPI
 
-from app.api.endpoints import player, stats, analysis, opgg
+from app.api.endpoints import player, stats, analysis, opgg, health
 from app.models.player import Player, ChampionMastery
 from app.models.match import Match, MatchParticipant
 from app.services.riot_api_client import RiotAPIError
@@ -19,6 +19,7 @@ def create_test_app():
     app.include_router(stats.router)
     app.include_router(analysis.router)
     app.include_router(opgg.router)
+    app.include_router(health.router)
     return app
 
 
@@ -100,6 +101,7 @@ class TestPlayerEndpoints:
                 assert response.status_code == 404
 
             app.dependency_overrides.clear()
+
 
     def test_get_player_success(self, mock_db, mock_player):
         """Test get_player returns player data."""
@@ -1449,3 +1451,56 @@ class TestOPGGEndpointRetry:
                 response = client.get("/opgg/champions/ahri/build")
 
                 assert response.status_code == 429
+
+
+class TestHealthEndpoints:
+    """Test health/diagnostics endpoints."""
+
+    def test_riot_health_missing_key(self):
+        app = create_test_app()
+        with patch("app.api.endpoints.health.settings") as mock_settings:
+            mock_settings.riot_api_key = ""
+            with TestClient(app) as client:
+                response = client.get("/health/riot")
+                assert response.status_code == 200
+                data = response.json()
+                assert data["ok"] is False
+                assert data["reason"] == "missing_riot_api_key"
+
+    def test_riot_health_connected(self):
+        app = create_test_app()
+        mock_riot_client = AsyncMock()
+        mock_riot_client.__aenter__.return_value = mock_riot_client
+        mock_riot_client.__aexit__.return_value = None
+        mock_riot_client.get_puuid_by_riot_id = AsyncMock(return_value={"puuid": "x"})
+
+        with patch("app.api.endpoints.health.settings") as mock_settings:
+            mock_settings.riot_api_key = "RGAPI-12345678-xxxx"
+            with patch("app.api.endpoints.health.get_riot_client", return_value=mock_riot_client):
+                with TestClient(app) as client:
+                    response = client.get("/health/riot")
+                    assert response.status_code == 200
+                    data = response.json()
+                    assert data["ok"] is True
+                    assert data["reason"] == "connected"
+                    assert data["key_prefix"] == "RGAPI-12..."
+
+    def test_riot_health_unauthorized(self):
+        app = create_test_app()
+        mock_riot_client = AsyncMock()
+        mock_riot_client.__aenter__.return_value = mock_riot_client
+        mock_riot_client.__aexit__.return_value = None
+        mock_riot_client.get_puuid_by_riot_id = AsyncMock(
+            side_effect=RiotAPIError(401, "Invalid API key or forbidden")
+        )
+
+        with patch("app.api.endpoints.health.settings") as mock_settings:
+            mock_settings.riot_api_key = "RGAPI-12345678-xxxx"
+            with patch("app.api.endpoints.health.get_riot_client", return_value=mock_riot_client):
+                with TestClient(app) as client:
+                    response = client.get("/health/riot")
+                    assert response.status_code == 200
+                    data = response.json()
+                    assert data["ok"] is False
+                    assert data["reason"] == "riot_api_error"
+                    assert data["upstream_status"] == 401

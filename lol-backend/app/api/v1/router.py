@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.endpoints import match, player, stats, analysis, opgg, coach, patch_notes
+from app.api.endpoints import match, player, stats, analysis, opgg, coach, patch_notes, health
 
 api_router = APIRouter()
 
@@ -11,3 +11,4 @@ api_router.include_router(analysis.router)
 api_router.include_router(opgg.router)
 api_router.include_router(coach.router)
 api_router.include_router(patch_notes.router)
+api_router.include_router(health.router)
