@@ -1,5 +1,5 @@
 import { useParams, Link } from 'react-router-dom';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { usePlayer, useChampionMastery } from '../hooks/usePlayer';
 import { useChampionBuild } from '../hooks/useChampionBuild';
@@ -24,6 +24,8 @@ export function PlayerPage() {
   const { data: player, isLoading, error, refetch } = usePlayer(gameName!, tagLine!, !!gameName && !!tagLine);
   const { data: masteryData } = useChampionMastery(player?.puuid ?? '', !!player?.puuid);
   const primaryChampionName = masteryData?.champion_masteries?.[0]?.championName ?? '';
+  const [opggForceRefresh, setOpggForceRefresh] = useState(false);
+  const [opggRefreshNonce, setOpggRefreshNonce] = useState(0);
   const {
     data: opggBuildResp,
     isLoading: isOpggBuildLoading,
@@ -31,10 +33,22 @@ export function PlayerPage() {
   } = useChampionBuild(
     primaryChampionName,
     !!primaryChampionName,
-    { region: 'kr', queue: 'RANKED_SOLO_5x5', tier: 'overall', refresh: true }
+    {
+      region: 'kr',
+      queue: 'RANKED_SOLO_5x5',
+      tier: 'overall',
+      refresh: opggForceRefresh,
+      refreshNonce: opggRefreshNonce,
+    }
   );
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshMessage, setRefreshMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (opggForceRefresh && !isOpggBuildLoading) {
+      setOpggForceRefresh(false);
+    }
+  }, [opggForceRefresh, isOpggBuildLoading]);
 
   const handleRefresh = async () => {
     if (!player?.puuid || isRefreshing) return;
@@ -56,6 +70,12 @@ export function PlayerPage() {
     } finally {
       setIsRefreshing(false);
     }
+  };
+
+  const handleOpggRefresh = () => {
+    if (!primaryChampionName || isOpggBuildLoading) return;
+    setOpggForceRefresh(true);
+    setOpggRefreshNonce((prev) => prev + 1);
   };
 
   if (isLoading) {
@@ -117,6 +137,14 @@ export function PlayerPage() {
           {refreshMessage && (
             <span className="text-sm text-gray-300">{refreshMessage}</span>
           )}
+          <button
+            type="button"
+            onClick={handleOpggRefresh}
+            disabled={!primaryChampionName || isOpggBuildLoading}
+            className="px-4 py-2 bg-indigo-700 text-white font-semibold rounded-lg hover:bg-indigo-600 disabled:opacity-50 transition-colors"
+          >
+            {isOpggBuildLoading && opggForceRefresh ? '更新 OP.GG 中...' : '强制更新 OP.GG'}
+          </button>
         </div>
 
         {masteries.length > 0 && (
