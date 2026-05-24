@@ -319,11 +319,13 @@ function RuneNode({
 export function RuneSimulator({
   recommendedRunes,
   recommendedSetup,
+  recommendedSetups = [],
   recommendedSetupValid = true,
   defaultCollapsed = false,
 }: {
   recommendedRunes: string[];
   recommendedSetup?: RecommendedRuneSetup | null;
+  recommendedSetups?: RecommendedRuneSetup[];
   recommendedSetupValid?: boolean;
   defaultCollapsed?: boolean;
 }) {
@@ -353,10 +355,27 @@ export function RuneSimulator({
   const [runeInfoMap, setRuneInfoMap] = useState<RuneInfoMap>({});
   const [focusedRuneName, setFocusedRuneName] = useState<string | null>(null);
   const [runeInfoVersion, setRuneInfoVersion] = useState<string | null>(null);
+  const [recommendedSetupIndex, setRecommendedSetupIndex] = useState(0);
   const didAutoExpandRef = useRef(false);
 
   const hasRecommendedData =
-    (recommendedSetup?.primary_runes?.length ?? 0) > 0 || recommendedRunes.length > 0;
+    (recommendedSetup?.primary_runes?.length ?? 0) > 0 ||
+    recommendedRunes.length > 0 ||
+    (recommendedSetups?.length ?? 0) > 0;
+  const effectiveRecommendedSetups = useMemo(() => {
+    const base = Array.isArray(recommendedSetups) ? recommendedSetups.filter((item) => item?.primary_runes?.length) : [];
+    if (base.length > 0) return base.slice(0, 2);
+    return recommendedSetup?.primary_runes?.length ? [recommendedSetup] : [];
+  }, [recommendedSetups, recommendedSetup]);
+  const selectedRecommendedSetup =
+    effectiveRecommendedSetups[Math.min(recommendedSetupIndex, Math.max(0, effectiveRecommendedSetups.length - 1))] ??
+    null;
+
+  useEffect(() => {
+    if (recommendedSetupIndex >= effectiveRecommendedSetups.length) {
+      setRecommendedSetupIndex(0);
+    }
+  }, [recommendedSetupIndex, effectiveRecommendedSetups.length]);
 
   useEffect(() => {
     if (!hasRecommendedData || didAutoExpandRef.current || !isCollapsed) return;
@@ -423,13 +442,13 @@ export function RuneSimulator({
   };
 
   const applyRecommendedSetup = () => {
-    if (!recommendedSetup?.primary_runes?.length) {
+    if (!selectedRecommendedSetup?.primary_runes?.length) {
       setNotice('暂无可应用的 OP.GG 符文');
       return;
     }
 
     const matchPrimaryPath = RUNE_PATHS.find((path) =>
-      recommendedSetup.primary_runes.every((rune) => path.slots.some((slot) => slot.includes(rune)))
+      selectedRecommendedSetup.primary_runes.every((rune) => path.slots.some((slot) => slot.includes(rune)))
     );
     if (!matchPrimaryPath) {
       setNotice('无法匹配 OP.GG 主系符文');
@@ -437,7 +456,7 @@ export function RuneSimulator({
     }
 
     const primaryNext: (string | null)[] = [null, null, null, null];
-    for (const rune of recommendedSetup.primary_runes) {
+    for (const rune of selectedRecommendedSetup.primary_runes) {
       const slotIdx = matchPrimaryPath.slots.findIndex((slot) => slot.includes(rune));
       if (slotIdx >= 0) primaryNext[slotIdx] = rune;
     }
@@ -445,11 +464,11 @@ export function RuneSimulator({
     const secondaryCandidatePaths = RUNE_PATHS.filter((path) => path.id !== matchPrimaryPath.id);
     const matchSecondaryPath =
       secondaryCandidatePaths.find((path) =>
-        recommendedSetup.secondary_runes.every((rune) => path.slots.slice(1).some((slot) => slot.includes(rune)))
+        selectedRecommendedSetup.secondary_runes.every((rune) => path.slots.slice(1).some((slot) => slot.includes(rune)))
       ) ?? secondaryCandidatePaths[0];
 
     const secondaryNext: (string | null)[] = [null, null, null];
-    for (const rune of recommendedSetup.secondary_runes.slice(0, 2)) {
+    for (const rune of selectedRecommendedSetup.secondary_runes.slice(0, 2)) {
       const rowIdx = matchSecondaryPath.slots.slice(1).findIndex((slot) => slot.includes(rune));
       if (rowIdx >= 0) secondaryNext[rowIdx] = rune;
     }
@@ -458,9 +477,9 @@ export function RuneSimulator({
     setSecondaryPathId(matchSecondaryPath.id);
     setPrimarySelections(primaryNext);
     setSecondarySelections(secondaryNext);
-    if (recommendedSetup.stat_shards?.length) {
+    if (selectedRecommendedSetup.stat_shards?.length) {
       const shardNext: (string | null)[] = [null, null, null];
-      recommendedSetup.stat_shards.slice(0, 3).forEach((shardName, rowIdx) => {
+      selectedRecommendedSetup.stat_shards.slice(0, 3).forEach((shardName, rowIdx) => {
         if (SHARDS[rowIdx]?.includes(shardName)) {
           shardNext[rowIdx] = shardName;
         }
@@ -645,14 +664,28 @@ export function RuneSimulator({
         >
           {isFetchingRuneInfo ? '更新中...' : 'Fetch 符文更新'}
         </button>
-        {recommendedSetup?.primary_runes?.length ? (
+        {effectiveRecommendedSetups.length ? (
+          <select
+            aria-label="opgg-recommended-setup-select"
+            value={recommendedSetupIndex}
+            onChange={(e) => setRecommendedSetupIndex(Number(e.target.value))}
+            className="px-3 py-2 rounded-lg bg-gray-700 text-white text-sm"
+          >
+            {effectiveRecommendedSetups.map((_, idx) => (
+              <option key={`recommended-setup-${idx}`} value={idx}>
+                {`OP.GG 预设 ${idx + 1}`}
+              </option>
+            ))}
+          </select>
+        ) : null}
+        {effectiveRecommendedSetups.length ? (
           <button
             type="button"
             onClick={applyRecommendedSetup}
             disabled={!recommendedSetupValid}
             className="px-3 py-2 rounded-lg bg-purple-700 text-white hover:bg-purple-600 disabled:opacity-60 text-sm"
           >
-            应用 OP.GG 符文
+            应用 OP.GG 预设
           </button>
         ) : null}
         <button

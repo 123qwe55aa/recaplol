@@ -602,6 +602,46 @@ class TestOPGGScraperIntegration:
 
         assert result["rune_setup_valid"] is True
         assert result["rune_setup"]["stat_shards"] == ["攻击速度", "自适应之力", "生命值"]
+        assert len(result["rune_setups"]) >= 1
+
+    @pytest.mark.asyncio
+    async def test_get_champion_build_extracts_two_rune_presets(self, scraper_with_mock):
+        scraper = scraper_with_mock
+        html = """
+        <html><body><script>
+          self.__next_f.push([1,"{\\"single_rune_builds\\":[{\\"selectedPerkIds\\":[8010,9111,9104,8299,8233,8236,5008,5008,5002]},{\\"selectedPerkIds\\":[8021,9111,9104,8014,8233,8236,5008,5008,5001]}]}"]);
+        </script></body></html>
+        """
+
+        async def fetch_side_effect(url, champ_slug, filters):
+            if "/counters" in url or "/synergies" in url:
+                return SAMPLE_EMPTY_PAGE_HTML
+            return html
+
+        scraper._fetch_page = AsyncMock(side_effect=fetch_side_effect)
+        scraper._get_from_cache = AsyncMock(return_value=None)
+        scraper._set_cache = AsyncMock()
+        scraper._fetch_synergies_with_fallbacks = AsyncMock(return_value=[])
+        scraper._fetch_ugg_synergies_fallback = AsyncMock(return_value=[])
+
+        with patch.object(scraper, "_get_rune_id_to_name_map", AsyncMock(return_value={
+            8010: "征服者", 8021: "迅捷步伐", 9111: "凯旋", 9104: "传说：欢欣", 8299: "坚毅不倒",
+            8014: "致命一击", 8233: "公理秘术", 8236: "迅捷"
+        })):
+            scraper._rune_meta_by_id = {
+                8010: {"style_id": 8000, "slot_index": 0},
+                8021: {"style_id": 8000, "slot_index": 0},
+                9111: {"style_id": 8000, "slot_index": 1},
+                9104: {"style_id": 8000, "slot_index": 2},
+                8299: {"style_id": 8000, "slot_index": 3},
+                8014: {"style_id": 8000, "slot_index": 3},
+                8233: {"style_id": 8200, "slot_index": 1},
+                8236: {"style_id": 8200, "slot_index": 2},
+            }
+            result = await scraper.get_champion_build("ahri", use_cache=False)
+
+        assert len(result["rune_setups"]) == 2
+        assert result["rune_setups"][0]["primary_runes"][0] in {"征服者", "迅捷步伐"}
 
     @pytest.mark.asyncio
     async def test_get_champion_build_cache_hit(self, scraper_with_mock):

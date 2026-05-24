@@ -49,6 +49,7 @@ export function PlayerCard({ player, opggBuild = null, opggStatusText = null }: 
         <RuneSimulator
           recommendedRunes={opggBuild?.runes?.map((rune) => rune.name) ?? []}
           recommendedSetup={opggBuild?.rune_setup ?? null}
+          recommendedSetups={opggBuild?.rune_setups ?? []}
           recommendedSetupValid={opggBuild?.rune_setup_valid ?? false}
           defaultCollapsed
         />

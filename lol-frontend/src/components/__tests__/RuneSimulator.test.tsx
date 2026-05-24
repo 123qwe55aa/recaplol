@@ -54,7 +54,7 @@ describe('RuneSimulator', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: '应用 OP.GG 符文' }));
+    fireEvent.click(screen.getByRole('button', { name: '应用 OP.GG 预设' }));
     const summary = screen.getByText('当前符文页').parentElement;
     expect(summary).toHaveTextContent('征服者 / 气定神闲 / 传说：欢欣 / 致命一击');
     expect(summary).toHaveTextContent('恶意中伤 / 幽灵魄罗');

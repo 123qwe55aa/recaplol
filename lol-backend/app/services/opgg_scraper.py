@@ -621,6 +621,7 @@ class OPGGScraper:
             "skills": [],
             "runes": [],
             "rune_setup": None,
+            "rune_setups": [],
             "rune_setup_valid": False,
             "matchups": {"counters": [], "countered_by": []},
             "synergies": [],
@@ -1069,6 +1070,31 @@ class OPGGScraper:
             selected_perk_id_lists = data.pop("_selected_perk_ids_lists", [])
             parsed_shard_id_lists = data.pop("_parsed_shard_id_lists", [])
 
+            def build_setup_from_ids(perk_ids: List[int]) -> Optional[Dict[str, Any]]:
+                if not perk_ids:
+                    return None
+                rune_map_local = self._rune_id_to_name
+                ordered_rune_ids = [perk_id for perk_id in perk_ids if perk_id >= 8000]
+                if not ordered_rune_ids:
+                    return None
+                selected_ids = self._select_best_rune_window_from_ids(ordered_rune_ids, self._rune_meta_by_id)
+                if len(selected_ids) < 6:
+                    return None
+                resolved = [rune_map_local.get(perk_id, f"perk_{perk_id}") for perk_id in selected_ids[:6]]
+                shard_ids_local: List[int] = []
+                for perk_id in perk_ids:
+                    if perk_id in self.SHARD_ID_TO_NAME and perk_id not in shard_ids_local:
+                        shard_ids_local.append(perk_id)
+                    if len(shard_ids_local) >= 3:
+                        break
+                shard_names_local = [self.SHARD_ID_TO_NAME.get(perk_id) for perk_id in shard_ids_local]
+                shard_names_local = [name for name in shard_names_local if name]
+                return {
+                    "primary_runes": resolved[:4],
+                    "secondary_runes": resolved[4:6],
+                    "stat_shards": shard_names_local[:3],
+                }
+
             # Prefer OP.GG structured config payload when available.
             selected_perk_ids: List[int] = []
             if selected_perk_id_lists:
@@ -1080,6 +1106,29 @@ class OPGGScraper:
                 if not selected_perk_ids:
                     selected_perk_ids = selected_perk_id_lists[0][:9]
 
+            rune_map = await self._get_rune_id_to_name_map()
+            _ = rune_map  # ensure self._rune_id_to_name / _rune_meta_by_id are hydrated
+
+            # Build up to 2 OP.GG preset setups.
+            preset_setups: List[Dict[str, Any]] = []
+            seen_setup_key: set[tuple] = set()
+            for candidate in selected_perk_id_lists:
+                setup = build_setup_from_ids(candidate[:9])
+                if not setup:
+                    continue
+                key = (
+                    tuple(setup["primary_runes"]),
+                    tuple(setup["secondary_runes"]),
+                    tuple(setup.get("stat_shards", [])),
+                )
+                if key in seen_setup_key:
+                    continue
+                seen_setup_key.add(key)
+                preset_setups.append(setup)
+                if len(preset_setups) >= 2:
+                    break
+            data["rune_setups"] = preset_setups
+
             # Normalize fallback perk ids (e.g. perk_8112) into localized rune names.
             rune_ids = data.pop("_rune_ids", [])
             selected: List[int] = []
@@ -1088,7 +1137,6 @@ class OPGGScraper:
                 if structured_rune_ids:
                     rune_ids = structured_rune_ids + rune_ids
             if rune_ids:
-                rune_map = await self._get_rune_id_to_name_map()
                 dedup_rune_ids: List[int] = []
                 for perk_id in rune_ids:
                     if perk_id in dedup_rune_ids:
@@ -1154,6 +1202,10 @@ class OPGGScraper:
                     }
                 else:
                     data["rune_setup"]["stat_shards"] = shard_names[:3]
+
+            if data.get("rune_setup") and data["rune_setup"] not in data["rune_setups"]:
+                data["rune_setups"] = [data["rune_setup"], *data["rune_setups"]]
+            data["rune_setups"] = data["rune_setups"][:2]
 
             # Try to also get counters (both directions)
             vs_url = self._build_vs_url(champ_slug, region, queue, tier)

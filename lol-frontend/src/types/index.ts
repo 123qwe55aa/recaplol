@@ -99,6 +99,11 @@ export interface OpggBuild {
     secondary_runes: string[];
     stat_shards?: string[];
   } | null;
+  rune_setups?: Array<{
+    primary_runes: string[];
+    secondary_runes: string[];
+    stat_shards?: string[];
+  }>;
   rune_setup_valid?: boolean;
   matchups: OpggMatchups;
   synergies: OpggSynergy[];
