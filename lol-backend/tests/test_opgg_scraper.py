@@ -68,6 +68,16 @@ SAMPLE_BUILD_PAGE_WITH_PERK_ID_RUNES_HTML = """
 </html>
 """
 
+SAMPLE_BUILD_PAGE_WITH_SELECTED_PERK_IDS_HTML = """
+<html>
+<body>
+    <script>
+        self.__next_f.push([1,"{\\"importClientData\\":{\\"type\\":\\"CHAMPION_DETAIL_BUILD\\",\\"selectedPerkIds\\":[8112,8139,8140,8106,8345,8347,5005,5008,5001]},\\"single_rune_builds\\":[{\\"shards\\":[{\\"id\\":5005},{\\"id\\":5008},{\\"id\\":5001}]}]}"]);
+    </script>
+</body>
+</html>
+"""
+
 SAMPLE_VS_PAGE_HTML = """
 <html>
 <body>
@@ -279,6 +289,11 @@ class TestOPGGScraper:
         assert result["rune_setup_valid"] is True
         assert 5008 in result["_perk_ids"]
         assert 5002 in result["_perk_ids"]
+
+    def test_parse_build_page_extracts_selected_perk_ids_from_config_payload(self, scraper, filters):
+        """Test parsing selectedPerkIds from OP.GG config payload."""
+        result = scraper._parse_build_page(SAMPLE_BUILD_PAGE_WITH_SELECTED_PERK_IDS_HTML, filters)
+        assert result["_selected_perk_ids_lists"][0] == [8112, 8139, 8140, 8106, 8345, 8347, 5005, 5008, 5001]
 
     def test_parse_vs_page(self, scraper, filters):
         """Test parsing VS (counter matchups) page."""
@@ -533,6 +548,45 @@ class TestOPGGScraperIntegration:
             result = await scraper_with_mock.get_champion_build("ezreal", use_cache=False)
 
         assert result["synergies"][0]["champion_name"] == "Lulu"
+
+    @pytest.mark.asyncio
+    async def test_get_champion_build_prefers_selected_perk_ids_for_shards(self, scraper_with_mock):
+        """selectedPerkIds should populate stat shards even when /perk/500x stream is missing."""
+        scraper = scraper_with_mock
+        html = """
+        <html><body><script>
+          self.__next_f.push([1,"{\\"importClientData\\":{\\"selectedPerkIds\\":[8112,8139,8140,8106,8345,8347,5005,5008,5001]}}"]);
+        </script></body></html>
+        """
+
+        async def fetch_side_effect(url, champ_slug, filters):
+            if "/counters" in url:
+                return SAMPLE_EMPTY_PAGE_HTML
+            if "/synergies" in url:
+                return SAMPLE_EMPTY_PAGE_HTML
+            return html
+
+        scraper._fetch_page = AsyncMock(side_effect=fetch_side_effect)
+        scraper._get_from_cache = AsyncMock(return_value=None)
+        scraper._set_cache = AsyncMock()
+        scraper._fetch_synergies_with_fallbacks = AsyncMock(return_value=[])
+        scraper._fetch_ugg_synergies_fallback = AsyncMock(return_value=[])
+
+        with patch.object(scraper, "_get_rune_id_to_name_map", AsyncMock(return_value={
+            8112: "电刑", 8139: "恶意中伤", 8140: "幽灵魄罗", 8106: "寻宝猎人", 8345: "饼干配送", 8347: "星界洞悉"
+        })):
+            scraper._rune_meta_by_id = {
+                8112: {"style_id": 8100, "slot_index": 0},
+                8139: {"style_id": 8100, "slot_index": 1},
+                8140: {"style_id": 8100, "slot_index": 2},
+                8106: {"style_id": 8100, "slot_index": 3},
+                8345: {"style_id": 8300, "slot_index": 1},
+                8347: {"style_id": 8300, "slot_index": 3},
+            }
+            result = await scraper.get_champion_build("ahri", use_cache=False)
+
+        assert result["rune_setup_valid"] is True
+        assert result["rune_setup"]["stat_shards"] == ["攻击速度", "自适应之力", "生命值"]
 
     @pytest.mark.asyncio
     async def test_get_champion_build_cache_hit(self, scraper_with_mock):

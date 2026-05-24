@@ -78,6 +78,7 @@ class OPGGScraper:
         5001: "生命值",
         5011: "移动速度",
     }
+    _SELECTED_PERK_IDS_PATTERN = re.compile(r'"selectedPerkIds"\s*:\s*\[([^\]]+)\]')
 
     # Default headers to mimic browser
     HEADERS = {
@@ -789,6 +790,23 @@ class OPGGScraper:
         if perk_ids:
             result["_perk_ids"] = perk_ids
 
+        # Parse OP.GG config payload (selectedPerkIds) which includes 6 runes + 3 shards.
+        selected_perk_id_lists: List[List[int]] = []
+        html_candidates = [html]
+        if '\\"selectedPerkIds\\"' in html:
+            html_candidates.append(html.replace('\\"', '"'))
+        for source in html_candidates:
+            for payload in self._SELECTED_PERK_IDS_PATTERN.findall(source):
+                ids = [int(token) for token in re.findall(r"\d+", payload)]
+                if len(ids) >= 6:
+                    selected_perk_id_lists.append(ids[:9])
+                if len(selected_perk_id_lists) >= 20:
+                    break
+            if selected_perk_id_lists:
+                break
+        if selected_perk_id_lists:
+            result["_selected_perk_ids_lists"] = selected_perk_id_lists
+
         # Fallback for current OP.GG app-router pages where rune imgs are embedded in script payload.
         rune_ids: List[int] = []
         if not runes:
@@ -1037,12 +1055,34 @@ class OPGGScraper:
         try:
             html = await self._fetch_page(url, champ_slug, filters)
             data = self._parse_build_page(html, filters)
+            selected_perk_id_lists = data.pop("_selected_perk_ids_lists", [])
+
+            # Prefer OP.GG structured config payload when available.
+            selected_perk_ids: List[int] = []
+            if selected_perk_id_lists:
+                for candidate in selected_perk_id_lists:
+                    shard_count = sum(1 for perk_id in candidate if perk_id in self.SHARD_ID_TO_NAME)
+                    if len(candidate) >= 9 and shard_count >= 2:
+                        selected_perk_ids = candidate[:9]
+                        break
+                if not selected_perk_ids:
+                    selected_perk_ids = selected_perk_id_lists[0][:9]
 
             # Normalize fallback perk ids (e.g. perk_8112) into localized rune names.
             rune_ids = data.pop("_rune_ids", [])
+            selected: List[int] = []
+            if selected_perk_ids:
+                structured_rune_ids = [perk_id for perk_id in selected_perk_ids if perk_id >= 8000]
+                if structured_rune_ids:
+                    rune_ids = structured_rune_ids + rune_ids
             if rune_ids:
                 rune_map = await self._get_rune_id_to_name_map()
-                selected = self._select_best_rune_window_from_ids(rune_ids, self._rune_meta_by_id)
+                dedup_rune_ids: List[int] = []
+                for perk_id in rune_ids:
+                    if perk_id in dedup_rune_ids:
+                        continue
+                    dedup_rune_ids.append(perk_id)
+                selected = self._select_best_rune_window_from_ids(dedup_rune_ids, self._rune_meta_by_id)
                 resolved = [rune_map.get(perk_id, f"perk_{perk_id}") for perk_id in selected]
                 data["runes"] = [{"name": name} for name in resolved]
                 if len(resolved) >= 6:
@@ -1054,8 +1094,17 @@ class OPGGScraper:
                     data["rune_setup_valid"] = True
 
             shard_ids: List[int] = []
+            if selected_perk_ids:
+                for perk_id in selected_perk_ids:
+                    if perk_id not in self.SHARD_ID_TO_NAME:
+                        continue
+                    if perk_id in shard_ids:
+                        continue
+                    shard_ids.append(perk_id)
+                    if len(shard_ids) >= 3:
+                        break
             perk_ids = data.pop("_perk_ids", [])
-            if perk_ids:
+            if perk_ids and len(shard_ids) < 3:
                 # Prefer shards that appear after the selected 6 runes in stream order.
                 anchor = -1
                 if rune_ids:
