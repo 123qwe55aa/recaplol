@@ -46,13 +46,10 @@ jobs:
 
       - name: Build
         env:
-          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL || secrets.VITE_API_BASE_URL || 'https://recaplol-backend.onrender.com' }}
           VITE_BASE_PATH: /recaplol/
         run: |
-          if [ -z "${VITE_API_BASE_URL}" ]; then
-            echo "VITE_API_BASE_URL is empty. Set it in GitHub Environment Variables."
-            exit 1
-          fi
+          echo "Using VITE_API_BASE_URL=${VITE_API_BASE_URL}"
           pnpm run build:pages
 
       - name: Upload Pages artifact
