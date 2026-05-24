@@ -1,15 +1,12 @@
-import type { OpggBuild, Player } from '../types';
+import type { Player } from '../types';
 import { RankBadge } from './RankBadge';
 import { ChampionPortrait } from './ChampionPortrait';
-import { RuneSimulator } from './RuneSimulator';
 
 interface PlayerCardProps {
   player: Player;
-  opggBuild?: OpggBuild | null;
-  opggStatusText?: string | null;
 }
 
-export function PlayerCard({ player, opggBuild = null, opggStatusText = null }: PlayerCardProps) {
+export function PlayerCard({ player }: PlayerCardProps) {
   const winRateColor = player.winRate >= 50 ? 'text-green-400' : 'text-red-400';
   const rankedStatusText = player.rankedStatus === 'ranked_from_riot'
     ? '排位来源: Riot 实时'
@@ -52,19 +49,6 @@ export function PlayerCard({ player, opggBuild = null, opggStatusText = null }: 
           </p>
           <p className="text-gray-400">胜率</p>
         </div>
-      </div>
-
-      <div className="mt-6 pt-6 border-t border-gray-700">
-        {opggStatusText ? (
-          <p className="text-xs text-gray-400 mb-2">{opggStatusText}</p>
-        ) : null}
-        <RuneSimulator
-          recommendedRunes={opggBuild?.runes?.map((rune) => rune.name) ?? []}
-          recommendedSetup={opggBuild?.rune_setup ?? null}
-          recommendedSetups={opggBuild?.rune_setups ?? []}
-          recommendedSetupValid={opggBuild?.rune_setup_valid ?? false}
-          defaultCollapsed
-        />
       </div>
 
       {player.recentChampions.length > 0 && (

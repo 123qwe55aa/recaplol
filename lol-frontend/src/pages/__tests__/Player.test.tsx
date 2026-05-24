@@ -6,19 +6,13 @@ import type { Player } from '../../types';
 
 const mockUsePlayer = vi.fn();
 const mockUseChampionMastery = vi.fn();
-const mockUseChampionBuild = vi.fn();
 const mockUseLolVersion = vi.fn();
 const mockUsePatchAnnouncement = vi.fn();
 const mockUseCoachChat = vi.fn();
-const mockUseQuery = vi.fn();
 
 vi.mock('../../hooks/usePlayer', () => ({
   usePlayer: () => mockUsePlayer(),
   useChampionMastery: () => mockUseChampionMastery(),
-}));
-
-vi.mock('../../hooks/useChampionBuild', () => ({
-  useChampionBuild: () => mockUseChampionBuild(),
 }));
 
 vi.mock('../../hooks/useLolVersion', () => ({
@@ -33,13 +27,8 @@ vi.mock('../../hooks/useCoach', () => ({
   useCoachChat: () => mockUseCoachChat(),
 }));
 
-vi.mock('@tanstack/react-query', () => ({
-  useQuery: () => mockUseQuery(),
-}));
-
 vi.mock('../../services/api', () => ({
   refreshPlayerByPuuid: vi.fn(),
-  getPlayerMatchesWithDetails: vi.fn(),
 }));
 
 const player: Player = {
@@ -75,8 +64,6 @@ describe('PlayerPage', () => {
       refetch: vi.fn(),
     });
     mockUseChampionMastery.mockReturnValue({ data: { champion_masteries: [] } });
-    mockUseChampionBuild.mockReturnValue({ data: { data: null } });
-    mockUseQuery.mockReturnValue({ data: null });
     mockUseLolVersion.mockReturnValue({
       data: '26.10.1',
       isLoading: false,
@@ -112,6 +99,5 @@ describe('PlayerPage', () => {
     expect(screen.getByText('LoL 版本公告')).toBeInTheDocument();
     expect(screen.getByText('《英雄聯盟》26.10版本更新公告')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '问 AI Coach' })).toBeInTheDocument();
-    expect(screen.getByText('符文模拟器')).toBeInTheDocument();
   });
 });
