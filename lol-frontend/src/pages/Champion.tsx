@@ -59,7 +59,8 @@ function formatWinRate(wr: number | null): string {
 
 function formatLastUpdated(isoString: string): string {
   try {
-    const date = new Date(isoString);
+    const normalized = /(?:Z|[+-]\d{2}:\d{2})$/.test(isoString) ? isoString : `${isoString}Z`;
+    const date = new Date(normalized);
     const local = date.toLocaleString('zh-CN', {
       month: '2-digit',
       day: '2-digit',
