@@ -33,7 +33,7 @@ def _should_resolve_latest_puuid(player, tag_line: str) -> bool:
     return tag_line.lower() in SEA_TAG_LINES
 
 
-def _build_player_response(player) -> PlayerResponse:
+def _build_player_response(player, ranked_status: Optional[str] = None) -> PlayerResponse:
     ranked_stats = None
     if player.ranked_solo_tier:
         ranked_stats = RankInfo(
@@ -54,6 +54,7 @@ def _build_player_response(player) -> PlayerResponse:
         summoner_level=player.summoner_level,
         revision_date=player.revision_date,
         ranked_stats=ranked_stats,
+        ranked_status=ranked_status,
         created_at=player.created_at,
         updated_at=player.updated_at,
     )
@@ -222,6 +223,7 @@ async def get_player_by_summoner(
     """
     repo = PlayerRepository(db)
     player = await repo.get_by_summoner_name(summoner_name, tag_line)
+    ranked_status = "ranked_from_cache"
 
     # SEA accounts can rotate from legacy/stale PUUIDs. Re-resolve by Riot ID
     # before returning cached rows so downstream match history uses the current PUUID.
@@ -240,7 +242,7 @@ async def get_player_by_summoner(
             puuid = account_data["puuid"]
 
             if player and player.puuid == puuid and player.summoner_id:
-                return _build_player_response(player)
+                return _build_player_response(player, ranked_status="ranked_from_cache")
 
             # Get summoner data by PUUID (correct platform for this tag line)
             try:
@@ -280,12 +282,15 @@ async def get_player_by_summoner(
                 except RiotAPIError as exc:
                     if not _should_ignore_ranked_decrypt_error(exc):
                         raise
+                    ranked_status = "ranked_fetch_failed_fallback"
             solo_rank = None
             if ranked_data:
                 for entry in ranked_data:
                     if entry.get("queueType") == "RANKED_SOLO_5x5":
                         solo_rank = entry
                         break
+            if ranked_status != "ranked_fetch_failed_fallback":
+                ranked_status = "ranked_from_riot" if solo_rank else "ranked_empty_from_riot"
 
             # Upsert player
             try:
@@ -313,7 +318,7 @@ async def get_player_by_summoner(
                 if not player:
                     raise
 
-    return _build_player_response(player)
+    return _build_player_response(player, ranked_status=ranked_status)
 
 
 @router.post("/{puuid}/refresh", response_model=PlayerResponse)

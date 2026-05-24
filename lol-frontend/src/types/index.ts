@@ -3,6 +3,7 @@ export interface Player {
   gameName: string;
   tagLine: string;
   level: number;
+  rankedStatus?: string | null;
   rank: string;
   tier: string;
   lp: number;

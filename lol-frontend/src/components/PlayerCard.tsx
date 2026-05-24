@@ -11,6 +11,15 @@ interface PlayerCardProps {
 
 export function PlayerCard({ player, opggBuild = null, opggStatusText = null }: PlayerCardProps) {
   const winRateColor = player.winRate >= 50 ? 'text-green-400' : 'text-red-400';
+  const rankedStatusText = player.rankedStatus === 'ranked_from_riot'
+    ? '排位来源: Riot 实时'
+    : player.rankedStatus === 'ranked_empty_from_riot'
+      ? '排位来源: Riot 返回空（当前无单排数据）'
+      : player.rankedStatus === 'ranked_fetch_failed_fallback'
+        ? '排位来源: Riot 拉取失败，已使用降级数据'
+        : player.rankedStatus === 'ranked_from_cache'
+          ? '排位来源: 本地缓存'
+          : null;
 
   return (
     <div className="bg-gray-800 rounded-xl p-6">
@@ -21,6 +30,9 @@ export function PlayerCard({ player, opggBuild = null, opggStatusText = null }: 
             <span className="text-gray-400 text-lg ml-1">#{player.tagLine}</span>
           </h2>
           <p className="text-gray-400 mt-1">等级 {player.level}</p>
+          {rankedStatusText ? (
+            <p className="text-xs text-gray-500 mt-1">{rankedStatusText}</p>
+          ) : null}
         </div>
         <RankBadge tier={player.tier} rank={player.rank} lp={player.lp} />
       </div>

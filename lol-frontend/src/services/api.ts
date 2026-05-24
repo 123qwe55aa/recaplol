@@ -36,6 +36,7 @@ interface ApiPlayerResponse {
   summoner_id: string;
   profile_icon_id: number;
   summoner_level: number;
+  ranked_status?: string | null;
   ranked_stats?: {
     tier: string;
     rank: string;
@@ -180,6 +181,7 @@ function transformPlayer(apiPlayer: ApiPlayerResponse): Player {
     gameName: apiPlayer.summoner_name,
     tagLine: apiPlayer.tag_line,
     level: apiPlayer.summoner_level,
+    rankedStatus: apiPlayer.ranked_status ?? null,
     rank: ranked?.rank ?? 'UNRANKED',
     tier: ranked?.tier ?? 'UNRANKED',
     lp: ranked?.league_points ?? 0,
