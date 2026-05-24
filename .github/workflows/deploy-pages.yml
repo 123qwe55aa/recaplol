@@ -44,9 +44,14 @@ jobs:
 
       - name: Build
         env:
-          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
           VITE_BASE_PATH: /recaplol/
-        run: pnpm run build:pages
+        run: |
+          if [ -z "${VITE_API_BASE_URL}" ]; then
+            echo "VITE_API_BASE_URL is empty. Set it in GitHub Environment Variables."
+            exit 1
+          fi
+          pnpm run build:pages
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
