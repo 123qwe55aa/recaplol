@@ -31,7 +31,7 @@ const RUNE_PATHS: RunePath[] = [
     slots: [
       ['电刑', '掠食者', '黑暗收割', '丛刃'],
       ['恶意中伤', '猛然冲击', '血之滋味', '僵尸守卫'],
-      ['第六感', '幽灵魄罗', '眼球收集器'],
+      ['第六感', '幽灵魄罗', '眼球收集器', '可怖纪念品'],
       ['寻宝猎人', '贪欲猎手', '终极猎人', '无情猎手'],
     ],
   },
@@ -119,6 +119,7 @@ const RUNE_ICON_MAP: Record<string, string> = {
   幽灵魄罗: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Domination/GhostPoro/GhostPoro.png',
   第六感: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Domination/GhostPoro/GhostPoro.png',
   眼球收集器: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Domination/EyeballCollection/EyeballCollection.png',
+  可怖纪念品: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Domination/EyeballCollection/EyeballCollection.png',
   贪欲猎手: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Domination/TreasureHunter/TreasureHunter.png',
   寻宝猎人: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Domination/TreasureHunter/TreasureHunter.png',
   终极猎人: 'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Domination/UltimateHunter/UltimateHunter.png',
