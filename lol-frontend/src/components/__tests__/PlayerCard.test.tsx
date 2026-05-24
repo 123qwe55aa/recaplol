@@ -73,4 +73,20 @@ describe('PlayerCard', () => {
     expect(screen.getByText('75 LP')).toBeInTheDocument();
   });
 
+  it('shows solo unavailable placeholders when ranked data is unavailable', () => {
+    const unavailablePlayer: Player = {
+      ...mockPlayer,
+      tier: 'UNRANKED',
+      rank: 'UNRANKED',
+      lp: 0,
+      wins: 0,
+      losses: 0,
+      winRate: 0,
+      rankedStatus: 'ranked_empty_from_riot',
+    };
+    render(<PlayerCard player={unavailablePlayer} />);
+    expect(screen.getByText('SOLO 暂不可用')).toBeInTheDocument();
+    expect(screen.getByText('-- LP')).toBeInTheDocument();
+  });
+
 });

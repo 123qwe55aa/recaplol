@@ -7,6 +7,9 @@ interface PlayerCardProps {
 }
 
 export function PlayerCard({ player }: PlayerCardProps) {
+  const isSoloUnavailable =
+    player.rankedStatus === 'ranked_empty_from_riot' ||
+    player.rankedStatus === 'ranked_fetch_failed_fallback';
   const winRateColor = player.winRate >= 50 ? 'text-green-400' : 'text-red-400';
   const rankedStatusText = player.rankedStatus === 'ranked_from_riot'
     ? '排位来源: Riot 实时'
@@ -31,21 +34,30 @@ export function PlayerCard({ player }: PlayerCardProps) {
             <p className="text-xs text-gray-500 mt-1">{rankedStatusText}</p>
           ) : null}
         </div>
-        <RankBadge tier={player.tier} rank={player.rank} lp={player.lp} />
+        {isSoloUnavailable ? (
+          <div className="text-right">
+            <div className="bg-gray-600 text-gray-100 font-bold px-3 py-1 rounded">
+              SOLO 暂不可用
+            </div>
+            <span className="text-gray-400 text-sm">-- LP</span>
+          </div>
+        ) : (
+          <RankBadge tier={player.tier} rank={player.rank} lp={player.lp} />
+        )}
       </div>
 
       <div className="mt-6 grid grid-cols-3 gap-4">
         <div className="text-center">
-          <p className="text-3xl font-bold text-white">{player.wins}W</p>
+          <p className="text-3xl font-bold text-white">{isSoloUnavailable ? '--' : `${player.wins}W`}</p>
           <p className="text-gray-400">胜</p>
         </div>
         <div className="text-center">
-          <p className="text-3xl font-bold text-white">{player.losses}L</p>
+          <p className="text-3xl font-bold text-white">{isSoloUnavailable ? '--' : `${player.losses}L`}</p>
           <p className="text-gray-400">负</p>
         </div>
         <div className="text-center">
           <p className={`text-3xl font-bold ${winRateColor}`}>
-            {player.winRate.toFixed(1)}%
+            {isSoloUnavailable ? '--' : `${player.winRate.toFixed(1)}%`}
           </p>
           <p className="text-gray-400">胜率</p>
         </div>
