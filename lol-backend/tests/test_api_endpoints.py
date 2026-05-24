@@ -456,7 +456,7 @@ class TestPlayerEndpoints:
                 "summonerLevel": 55,
                 "revisionDate": 1700000001000,
             })
-            mock_riot_client.get_player_ranked_stats = AsyncMock(return_value=[])
+            mock_riot_client.get_player_ranked_stats_by_puuid = AsyncMock(return_value=[])
 
             app = create_test_app()
             from app.db.database import get_db
@@ -575,7 +575,7 @@ class TestPlayerEndpoints:
                     "revisionDate": 1800000000000,
                 }
             )
-            mock_riot_client.get_player_ranked_stats = AsyncMock(
+            mock_riot_client.get_player_ranked_stats_by_puuid = AsyncMock(
                 return_value=[
                     {
                         "queueType": "RANKED_SOLO_5x5",
@@ -637,7 +637,7 @@ class TestPlayerEndpoints:
                     "revisionDate": 1800000000000,
                 }
             )
-            mock_riot_client.get_player_ranked_stats = AsyncMock(
+            mock_riot_client.get_player_ranked_stats_by_puuid = AsyncMock(
                 side_effect=RiotAPIError(
                     400,
                     "Bad Request - Exception decrypting encrypted-id",

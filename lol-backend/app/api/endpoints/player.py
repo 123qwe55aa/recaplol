@@ -318,13 +318,12 @@ async def get_player_by_summoner(
 
             # Get ranked stats
             ranked_data = None
-            if "id" in summoner_data:
-                try:
-                    ranked_data = await riot_client.get_player_ranked_stats(summoner_data["id"], tag_line=tag_line)
-                except RiotAPIError as exc:
-                    if not _should_ignore_ranked_decrypt_error(exc):
-                        raise
-                    ranked_status = "ranked_fetch_failed_fallback"
+            try:
+                ranked_data = await riot_client.get_player_ranked_stats_by_puuid(puuid, tag_line=tag_line)
+            except RiotAPIError as exc:
+                if not _should_ignore_ranked_decrypt_error(exc):
+                    raise
+                ranked_status = "ranked_fetch_failed_fallback"
             solo_rank = None
             flex_rank = None
             if ranked_data:
@@ -413,15 +412,14 @@ async def refresh_player_by_puuid(
             )
 
         ranked_data = None
-        if "id" in summoner_data:
-            try:
-                ranked_data = await riot_client.get_player_ranked_stats(
-                    summoner_data["id"],
-                    tag_line=player.tag_line,
-                )
-            except RiotAPIError as exc:
-                if not _should_ignore_ranked_decrypt_error(exc):
-                    raise
+        try:
+            ranked_data = await riot_client.get_player_ranked_stats_by_puuid(
+                puuid,
+                tag_line=player.tag_line,
+            )
+        except RiotAPIError as exc:
+            if not _should_ignore_ranked_decrypt_error(exc):
+                raise
 
         solo_rank = None
         flex_rank = None

@@ -150,6 +150,12 @@ class RiotAPIClient:
         url = f"{base}/lol/league/v4/entries/by-summoner/{encrypted_id}"
         return await self._get(url)
 
+    async def get_player_ranked_stats_by_puuid(self, puuid: str, tag_line: str = "na1") -> Optional[Dict]:
+        base = self.TAG_TO_PLATFORM.get(tag_line.lower(), self.REGION_URL)
+        normalized_puuid = self._normalize_puuid(puuid)
+        url = f"{base}/lol/league/v4/entries/by-puuid/{normalized_puuid}"
+        return await self._get(url)
+
     async def get_challenger_league(self, queue: str = "RANKED_SOLO_5x5") -> Optional[Dict]:
         url = f"{self.REGION_URL}/lol/league/v4/challengerleagues/by-queue/{queue}"
         return await self._get(url)
