@@ -438,12 +438,13 @@ export const getChampionBuild = async (
   queue: QueueType = 'RANKED_SOLO_5x5',
   tier = 'overall',
   countersCount = 5,
-  role = ''
+  role = '',
+  refresh = false
 ): Promise<ChampionBuildResponse> => {
   const { data } = await api.get<ChampionBuildResponse>(
     `/opgg/champions/${encodeURIComponent(champName)}/build`,
     {
-      params: { region, queue, tier, counters_count: countersCount, role },
+      params: { region, queue, tier, counters_count: countersCount, role, refresh },
     }
   );
   return data;

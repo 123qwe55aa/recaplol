@@ -31,7 +31,7 @@ export function PlayerPage() {
   } = useChampionBuild(
     primaryChampionName,
     !!primaryChampionName,
-    { region: 'kr', queue: 'RANKED_SOLO_5x5', tier: 'overall' }
+    { region: 'kr', queue: 'RANKED_SOLO_5x5', tier: 'overall', refresh: true }
   );
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshMessage, setRefreshMessage] = useState<string | null>(null);

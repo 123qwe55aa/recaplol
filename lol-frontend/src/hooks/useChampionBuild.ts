@@ -8,6 +8,7 @@ interface UseChampionBuildOptions {
   tier?: string;
   countersCount?: number;
   role?: string;
+  refresh?: boolean;
 }
 
 export const useChampionBuild = (
@@ -21,11 +22,12 @@ export const useChampionBuild = (
     tier = 'overall',
     countersCount = 5,
     role = '',
+    refresh = false,
   } = options;
 
   return useQuery({
-    queryKey: ['championBuild', champName, region, queue, tier, countersCount, role],
-    queryFn: () => getChampionBuild(champName, region, queue, tier, countersCount, role),
+    queryKey: ['championBuild', champName, region, queue, tier, countersCount, role, refresh],
+    queryFn: () => getChampionBuild(champName, region, queue, tier, countersCount, role, refresh),
     enabled: enabled && !!champName,
     staleTime: 6 * 60 * 60 * 1000, // 6 hours - matches backend cache TTL
     retry: 2,

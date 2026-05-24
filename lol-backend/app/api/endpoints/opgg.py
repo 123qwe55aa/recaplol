@@ -55,6 +55,7 @@ async def get_champion_build(
     version: Optional[str] = Query(default=None, description="Patch version"),
     counters_count: int = Query(default=5, ge=1, le=10, description="Number of counter champions to return"),
     role: str = Query(default="", description="Role filter (top, jungle, mid, adc, support)"),
+    refresh: bool = Query(default=False, description="Bypass backend cache and fetch latest data"),
 ):
     """
     Get champion build data from OP.GG including:
@@ -107,7 +108,7 @@ async def get_champion_build(
                 tier=tier,
                 version=version,
                 role=role,
-                use_cache=True,
+                use_cache=not refresh,
             )
 
             # Truncate matchups to requested count
