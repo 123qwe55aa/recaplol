@@ -78,6 +78,16 @@ SAMPLE_BUILD_PAGE_WITH_SELECTED_PERK_IDS_HTML = """
 </html>
 """
 
+SAMPLE_BUILD_PAGE_WITH_SHARDS_BLOCK_HTML = """
+<html>
+<body>
+    <script>
+        self.__next_f.push([1,"{\\"single_rune_builds\\":[{\\"shards\\":[{\\"id\\":5005,\\"name\\":\\"Attack Speed\\"},{\\"id\\":5008,\\"name\\":\\"Adaptive Force\\"},{\\"id\\":5001,\\"name\\":\\"Scaling Health\\"}]}]}"]);
+    </script>
+</body>
+</html>
+"""
+
 SAMPLE_VS_PAGE_HTML = """
 <html>
 <body>
@@ -294,6 +304,11 @@ class TestOPGGScraper:
         """Test parsing selectedPerkIds from OP.GG config payload."""
         result = scraper._parse_build_page(SAMPLE_BUILD_PAGE_WITH_SELECTED_PERK_IDS_HTML, filters)
         assert result["_selected_perk_ids_lists"][0] == [8112, 8139, 8140, 8106, 8345, 8347, 5005, 5008, 5001]
+
+    def test_parse_build_page_extracts_shards_from_single_rune_builds(self, scraper, filters):
+        """Test parsing shards ids from single_rune_builds payload."""
+        result = scraper._parse_build_page(SAMPLE_BUILD_PAGE_WITH_SHARDS_BLOCK_HTML, filters)
+        assert result["_parsed_shard_id_lists"][0] == [5005, 5008, 5001]
 
     def test_parse_vs_page(self, scraper, filters):
         """Test parsing VS (counter matchups) page."""

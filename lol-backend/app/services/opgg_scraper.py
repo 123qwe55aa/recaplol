@@ -792,8 +792,9 @@ class OPGGScraper:
 
         # Parse OP.GG config payload (selectedPerkIds) which includes 6 runes + 3 shards.
         selected_perk_id_lists: List[List[int]] = []
+        parsed_shard_id_lists: List[List[int]] = []
         html_candidates = [html]
-        if '\\"selectedPerkIds\\"' in html:
+        if '\\"' in html:
             html_candidates.append(html.replace('\\"', '"'))
         for source in html_candidates:
             for payload in self._SELECTED_PERK_IDS_PATTERN.findall(source):
@@ -802,10 +803,20 @@ class OPGGScraper:
                     selected_perk_id_lists.append(ids[:9])
                 if len(selected_perk_id_lists) >= 20:
                     break
+            for m in re.finditer(r'"shards"\s*:\s*\[', source):
+                snippet = source[m.start():m.start() + 320]
+                ids = [int(token) for token in re.findall(r'"id"\s*:\s*(\d+)', snippet)]
+                shard_ids = [perk_id for perk_id in ids if perk_id in self.SHARD_ID_TO_NAME]
+                if shard_ids:
+                    parsed_shard_id_lists.append(shard_ids[:3])
+                if len(parsed_shard_id_lists) >= 20:
+                    break
             if selected_perk_id_lists:
                 break
         if selected_perk_id_lists:
             result["_selected_perk_ids_lists"] = selected_perk_id_lists
+        if parsed_shard_id_lists:
+            result["_parsed_shard_id_lists"] = parsed_shard_id_lists
 
         # Fallback for current OP.GG app-router pages where rune imgs are embedded in script payload.
         rune_ids: List[int] = []
@@ -1056,6 +1067,7 @@ class OPGGScraper:
             html = await self._fetch_page(url, champ_slug, filters)
             data = self._parse_build_page(html, filters)
             selected_perk_id_lists = data.pop("_selected_perk_ids_lists", [])
+            parsed_shard_id_lists = data.pop("_parsed_shard_id_lists", [])
 
             # Prefer OP.GG structured config payload when available.
             selected_perk_ids: List[int] = []
@@ -1101,6 +1113,12 @@ class OPGGScraper:
                     if perk_id in shard_ids:
                         continue
                     shard_ids.append(perk_id)
+                    if len(shard_ids) >= 3:
+                        break
+            if len(shard_ids) < 3 and parsed_shard_id_lists:
+                for perk_id in parsed_shard_id_lists[0]:
+                    if perk_id in self.SHARD_ID_TO_NAME and perk_id not in shard_ids:
+                        shard_ids.append(perk_id)
                     if len(shard_ids) >= 3:
                         break
             perk_ids = data.pop("_perk_ids", [])
