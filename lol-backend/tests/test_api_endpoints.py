@@ -262,6 +262,67 @@ class TestPlayerEndpoints:
                 mock_mastery_repo.upsert_masteries.assert_awaited_once()
                 app.dependency_overrides.clear()
 
+    def test_get_player_mastery_syncs_when_summoner_id_missing(self, mock_db, mock_masteries):
+        """Test mastery sync first resolves summoner_id by PUUID when missing locally."""
+        stale_player = Player(
+            puuid="test-puuid",
+            summoner_id=None,
+            summoner_name="TestPlayer",
+            tag_line="TW2",
+            profile_icon_id=1,
+            summoner_level=77,
+            revision_date=1700000000000,
+        )
+        refreshed_player = Player(
+            puuid="test-puuid",
+            summoner_id="summoner-new",
+            summoner_name="TestPlayer",
+            tag_line="TW2",
+            profile_icon_id=2,
+            summoner_level=80,
+            revision_date=1700000001000,
+        )
+
+        with patch("app.api.endpoints.player.PlayerRepository") as MockRepo:
+            with patch("app.api.endpoints.player.ChampionMasteryRepository") as MockMasteryRepo:
+                mock_repo = MockRepo.return_value
+                mock_repo.get_by_puuid = AsyncMock(return_value=stale_player)
+                mock_repo.upsert_player = AsyncMock(return_value=refreshed_player)
+
+                mock_mastery_repo = MockMasteryRepo.return_value
+                mock_mastery_repo.get_by_puuid = AsyncMock(side_effect=[[], mock_masteries])
+                mock_mastery_repo.upsert_masteries = AsyncMock(return_value=mock_masteries)
+
+                mock_riot_client = AsyncMock()
+                mock_riot_client.__aenter__.return_value = mock_riot_client
+                mock_riot_client.__aexit__.return_value = None
+                mock_riot_client.get_summoner_by_puuid = AsyncMock(return_value={
+                    "id": "summoner-new",
+                    "name": "TestPlayer",
+                    "profileIconId": 2,
+                    "summonerLevel": 80,
+                    "revisionDate": 1700000001000,
+                })
+                mock_riot_client.get_champion_masteries = AsyncMock(return_value=[
+                    {"championId": 103, "championLevel": 7, "championPoints": 500000},
+                ])
+
+                app = create_test_app()
+
+                from app.db.database import get_db
+                app.dependency_overrides[get_db] = lambda: mock_db
+
+                with patch("app.api.endpoints.player.get_riot_client", return_value=mock_riot_client):
+                    with TestClient(app) as client:
+                        response = client.get("/players/test-puuid/mastery?limit=10")
+                        assert response.status_code == 200
+                        data = response.json()
+                        assert data["puuid"] == "test-puuid"
+
+                mock_riot_client.get_summoner_by_puuid.assert_awaited_once()
+                mock_mastery_repo.upsert_masteries.assert_awaited_once()
+                app.dependency_overrides.clear()
+
     def test_get_player_by_summoner_not_found(self, mock_db):
         """Test get_player_by_summoner returns 404 when player not found."""
         with patch("app.api.endpoints.player.PlayerRepository") as MockRepo:

@@ -61,15 +61,39 @@ def _build_player_response(player) -> PlayerResponse:
 
 async def _sync_masteries_for_player(
     player,
+    player_repo: PlayerRepository,
     mastery_repo: ChampionMasteryRepository,
     db: AsyncSession,
 ) -> None:
-    if not player or not player.summoner_id:
+    if not player:
         return
 
     riot_client: RiotAPIClient = get_riot_client()
     try:
         async with riot_client:
+            if not player.summoner_id:
+                summoner_data = await riot_client.get_summoner_by_puuid(
+                    player.puuid,
+                    tag_line=player.tag_line or "na1",
+                )
+                if not summoner_data or not summoner_data.get("id"):
+                    return
+                player = await player_repo.upsert_player(
+                    puuid=player.puuid,
+                    summoner_name=summoner_data.get("name", player.summoner_name),
+                    tag_line=player.tag_line,
+                    summoner_id=summoner_data.get("id"),
+                    profile_icon_id=summoner_data.get("profileIconId", player.profile_icon_id or 0),
+                    summoner_level=summoner_data.get("summonerLevel", player.summoner_level or 0),
+                    revision_date=summoner_data.get("revisionDate", player.revision_date),
+                    ranked_solo_tier=player.ranked_solo_tier,
+                    ranked_solo_rank=player.ranked_solo_rank,
+                    ranked_solo_league_points=player.ranked_solo_league_points or 0,
+                    ranked_solo_wins=player.ranked_solo_wins or 0,
+                    ranked_solo_losses=player.ranked_solo_losses or 0,
+                )
+                await db.commit()
+
             masteries = await riot_client.get_champion_masteries(
                 player.summoner_id,
                 tag_line=player.tag_line or "na1",
@@ -152,7 +176,7 @@ async def get_player_mastery(
     mastery_repo = ChampionMasteryRepository(db)
     masteries = await mastery_repo.get_by_puuid(puuid)
     if not masteries:
-        await _sync_masteries_for_player(player, mastery_repo, db)
+        await _sync_masteries_for_player(player, player_repo, mastery_repo, db)
         masteries = await mastery_repo.get_by_puuid(puuid)
 
     # Apply limit
