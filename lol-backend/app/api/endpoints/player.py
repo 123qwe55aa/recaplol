@@ -59,6 +59,30 @@ def _build_player_response(player) -> PlayerResponse:
     )
 
 
+async def _sync_masteries_for_player(
+    player,
+    mastery_repo: ChampionMasteryRepository,
+    db: AsyncSession,
+) -> None:
+    if not player or not player.summoner_id:
+        return
+
+    riot_client: RiotAPIClient = get_riot_client()
+    try:
+        async with riot_client:
+            masteries = await riot_client.get_champion_masteries(
+                player.summoner_id,
+                tag_line=player.tag_line or "na1",
+            )
+    except RiotAPIError:
+        return
+    if not masteries:
+        return
+
+    await mastery_repo.upsert_masteries(player.puuid, player.summoner_id, masteries)
+    await db.commit()
+
+
 @router.get("/{puuid}", response_model=PlayerResponse)
 async def get_player(
     puuid: str,
@@ -127,6 +151,9 @@ async def get_player_mastery(
 
     mastery_repo = ChampionMasteryRepository(db)
     masteries = await mastery_repo.get_by_puuid(puuid)
+    if not masteries:
+        await _sync_masteries_for_player(player, mastery_repo, db)
+        masteries = await mastery_repo.get_by_puuid(puuid)
 
     # Apply limit
     masteries = masteries[:limit]
