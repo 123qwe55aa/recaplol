@@ -1,4 +1,5 @@
 from typing import Optional, List
+import inspect
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, desc
 from datetime import datetime
@@ -73,6 +74,30 @@ class MatchParticipantRepository(BaseRepository[MatchParticipant]):
             select(MatchParticipant).where(MatchParticipant.match_id == match_id)
         )
         return list(result.scalars().all())
+
+    async def get_latest_summoner_id_by_puuid(self, puuid: str) -> Optional[str]:
+        result = await self.session.execute(
+            select(MatchParticipant.summoner_id)
+            .where(
+                and_(
+                    MatchParticipant.puuid == puuid,
+                    MatchParticipant.summoner_id.is_not(None),
+                    MatchParticipant.summoner_id != "",
+                )
+            )
+            .order_by(desc(MatchParticipant.id))
+            .limit(1)
+        )
+        row = result.first()
+        if inspect.isawaitable(row):
+            row = await row
+        if not row:
+            return None
+        value = row[0]
+        if not isinstance(value, str):
+            return None
+        value = value.strip()
+        return value or None
 
     async def get_participant_stats(
         self,

@@ -6,6 +6,7 @@ from typing import Optional
 
 from app.db.database import get_db
 from app.repositories.player import PlayerRepository, ChampionMasteryRepository
+from app.repositories.match import MatchParticipantRepository
 from app.schemas.player import (
     PlayerResponse,
     RankInfo,
@@ -77,6 +78,26 @@ async def _sync_masteries_for_player(
     riot_client: RiotAPIClient = get_riot_client()
     try:
         async with riot_client:
+            if not player.summoner_id:
+                participant_repo = MatchParticipantRepository(db)
+                fallback_summoner_id = await participant_repo.get_latest_summoner_id_by_puuid(player.puuid)
+                if fallback_summoner_id:
+                    player = await player_repo.upsert_player(
+                        puuid=player.puuid,
+                        summoner_name=player.summoner_name,
+                        tag_line=player.tag_line,
+                        summoner_id=fallback_summoner_id,
+                        profile_icon_id=player.profile_icon_id or 0,
+                        summoner_level=player.summoner_level or 0,
+                        revision_date=player.revision_date,
+                        ranked_solo_tier=player.ranked_solo_tier,
+                        ranked_solo_rank=player.ranked_solo_rank,
+                        ranked_solo_league_points=player.ranked_solo_league_points or 0,
+                        ranked_solo_wins=player.ranked_solo_wins or 0,
+                        ranked_solo_losses=player.ranked_solo_losses or 0,
+                    )
+                    await db.commit()
+
             if not player.summoner_id:
                 summoner_data = await riot_client.get_summoner_by_puuid(
                     player.puuid,
@@ -259,6 +280,25 @@ async def get_player_by_summoner(
                         status_code=404,
                         detail=f"Summoner data not found for {summoner_name}#{tag_line}"
                     )
+                if not player.summoner_id:
+                    participant_repo = MatchParticipantRepository(db)
+                    fallback_summoner_id = await participant_repo.get_latest_summoner_id_by_puuid(puuid)
+                    if fallback_summoner_id:
+                        player = await repo.upsert_player(
+                            puuid=puuid,
+                            summoner_name=player.summoner_name,
+                            tag_line=player.tag_line,
+                            summoner_id=fallback_summoner_id,
+                            profile_icon_id=player.profile_icon_id or 0,
+                            summoner_level=player.summoner_level or 1,
+                            revision_date=player.revision_date,
+                            ranked_solo_tier=player.ranked_solo_tier,
+                            ranked_solo_rank=player.ranked_solo_rank,
+                            ranked_solo_league_points=player.ranked_solo_league_points or 0,
+                            ranked_solo_wins=player.ranked_solo_wins or 0,
+                            ranked_solo_losses=player.ranked_solo_losses or 0,
+                        )
+                        await db.commit()
                 player = await repo.upsert_player(
                     puuid=puuid,
                     summoner_name=player.summoner_name,
